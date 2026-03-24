@@ -4980,12 +4980,21 @@ export default function App() {
               <a href="#board" className="text-sm font-semibold text-slate-600 hover:text-emerald-600 transition-colors">고객지원</a>
             </div>
 
-            <button 
-              onClick={() => setIsLoggedIn(true)}
-              className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10"
-            >
-              플랫폼 로그인
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => window.open('/transport-app.html', '_blank')}
+                className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/10 flex items-center gap-2"
+              >
+                <Truck className="w-4 h-4" />
+                앱 확인하기
+              </button>
+              <button
+                onClick={() => setIsLoggedIn(true)}
+                className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10"
+              >
+                플랫폼 로그인
+              </button>
+            </div>
           </div>
         </nav>
 
