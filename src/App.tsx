@@ -316,22 +316,74 @@ export default function App() {
     agreedSecurity: false,
   });
 
-  // Transport - Integrity Check State
-  const [selectedEmissionId, setSelectedEmissionId] = useState('DSP-2026-00123');
-  const [continuousScan, setContinuousScan] = useState(true);
-  const [scanInput, setScanInput] = useState('');
-  const [scanFilter, setScanFilter] = useState('전체');
-  const [scanSearch, setScanSearch] = useState('');
-  const [showTransportStartPopup, setShowTransportStartPopup] = useState(false);
-  const [sealNumber, setSealNumber] = useState('');
-  const scanInputRef = useRef<HTMLInputElement>(null);
-  const [scanFeedback, setScanFeedback] = useState<{status: string; message: string; sn: string} | null>(null);
-  const [scanLog, setScanLog] = useState<{sn: string; status: string; time: string; assetId: string}[]>([]);
-
-  // Transport - Phase 2 Monitoring State
-  const [transportPhase, setTransportPhase] = useState<'integrity' | 'monitoring'>('integrity');
+  // Transport State
+  const [transportTab, setTransportTab] = useState<'dispatch' | 'integrity' | 'info' | 'monitoring'>('dispatch');
   const [selectedTransport, setSelectedTransport] = useState<string | null>('TRN-2026-00051');
   const [transportFilter, setTransportFilter] = useState('전체');
+  const [integrityFilter, setIntegrityFilter] = useState('전체');
+  const [integritySearch, setIntegritySearch] = useState('');
+  const [dispatchFilter, setDispatchFilter] = useState('전체');
+  const [selectedDispatch, setSelectedDispatch] = useState<string | null>(null);
+  const [dispatchForm, setDispatchForm] = useState({
+    vehicleType: '1톤 보안차량',
+    vehicleNumber: '',
+    driverName: '',
+    driverPhone: '',
+    departDate: '',
+    departTime: '',
+    arrivalDate: '',
+    arrivalTime: '',
+    sealRequired: true,
+    gpsTracking: true,
+    securityPledge: true,
+  });
+
+  const dispatchableEmissions = emissionRequests.filter(e => ['신청완료', '승인대기', '운송중'].includes(e.status));
+  const getDispatchStatus = (emissionId: string) => {
+    const t = transportMonitorData.transports.find(t => t.emissionId === emissionId);
+    if (t) return '배차완료';
+    return '배차대기';
+  };
+
+  // 유형별 수량 비교 데이터 (배출신청 vs 현장스캔)
+  const getIntegrityByType = (transportId: string) => {
+    const data: Record<string, {types: {type: string; registered: number; scanned: number; diff: number}[]; scannedAssets: {id: string; sn: string; type: string; manufacturer: string; model: string; status: string; scanTime: string; remark: string}[]; photos: string[]; memo: string}> = {
+      'TRN-2026-00051': {
+        types: [
+          { type: 'Server', registered: 4, scanned: 4, diff: 0 },
+          { type: 'Network', registered: 2, scanned: 2, diff: 0 },
+          { type: 'Storage', registered: 2, scanned: 2, diff: 0 },
+        ],
+        scannedAssets: [
+          { id: 'SCN-001', sn: 'SN-982341', type: 'Server', manufacturer: 'Dell', model: 'PowerEdge R740', status: 'matched', scanTime: '09:15', remark: '' },
+          { id: 'SCN-002', sn: 'SN-982342', type: 'Server', manufacturer: 'Dell', model: 'PowerEdge R740', status: 'matched', scanTime: '09:16', remark: '' },
+          { id: 'SCN-003', sn: 'SN-982343', type: 'Server', manufacturer: 'Dell', model: 'PowerEdge R740', status: 'matched', scanTime: '09:17', remark: '' },
+          { id: 'SCN-004', sn: 'SN-982344', type: 'Server', manufacturer: 'Dell', model: 'PowerEdge R740', status: 'matched', scanTime: '09:18', remark: '' },
+          { id: 'SCN-005', sn: 'SN-NET-001', type: 'Network', manufacturer: 'Cisco', model: 'Catalyst 9300', status: 'matched', scanTime: '09:20', remark: '' },
+          { id: 'SCN-006', sn: 'SN-NET-002', type: 'Network', manufacturer: 'Cisco', model: 'Catalyst 9300', status: 'matched', scanTime: '09:21', remark: '' },
+          { id: 'SCN-007', sn: 'SN-STO-001', type: 'Storage', manufacturer: 'NetApp', model: 'AFF A400', status: 'matched', scanTime: '09:23', remark: '' },
+          { id: 'SCN-008', sn: 'SN-STO-002', type: 'Storage', manufacturer: 'NetApp', model: 'AFF A400', status: 'matched', scanTime: '09:24', remark: '' },
+        ],
+        photos: ['상차 전 전경', '봉인 완료'],
+        memo: '전 자산 정상 확인. 서버룸 5층에서 엘리베이터 이용 반출.',
+      },
+      'TRN-2026-00052': {
+        types: [
+          { type: 'PC', registered: 15, scanned: 14, diff: -1 },
+          { type: 'Notebook', registered: 6, scanned: 6, diff: 0 },
+          { type: 'Monitor', registered: 2, scanned: 2, diff: 0 },
+          { type: '미신청 자산', registered: 0, scanned: 1, diff: 1 },
+        ],
+        scannedAssets: [
+          { id: 'SCN-101', sn: 'SN-HP-001', type: 'PC', manufacturer: 'HP', model: 'EliteDesk 800', status: 'matched', scanTime: '10:00', remark: '' },
+          { id: 'SCN-123', sn: 'SN-UNK-001', type: 'PC', manufacturer: 'Dell', model: 'Optiplex 7090', status: 'unregistered', scanTime: '10:25', remark: '미신청 자산 — 포함 처리' },
+        ],
+        photos: ['상차 전 전경', '불일치 자산 사진', '봉인 완료'],
+        memo: 'PC 1대 미발견 (타부서 이관). 미등록 Dell 1대 추가 발견, 포함 처리.',
+      },
+    };
+    return data[transportId] || { types: [], scannedAssets: [], photos: [], memo: '' };
+  };
 
   // Mock transport monitoring data
   const transportMonitorData = {
@@ -496,7 +548,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    if (transportPhase !== 'monitoring') return;
+    if (transportTab !== 'monitoring') return;
     const interval = setInterval(() => {
       setVehicleAnimProgress(prev => {
         const next = { ...prev };
@@ -507,7 +559,7 @@ export default function App() {
       });
     }, 800);
     return () => clearInterval(interval);
-  }, [transportPhase]);
+  }, [transportTab]);
 
   // 경로 좌표 (출발지 → ITAD 처리센터 인천) - SVG viewBox 800x420 기준
   const vehicleRoutes: Record<string, { path: [number,number][]; color: string }> = {
@@ -730,86 +782,6 @@ export default function App() {
     { grade: '극비', total: 8, completed: 5 },
   ];
 
-  // Mock emission request data
-  const emissionRequestInfo = {
-    id: 'DSP-2026-00123',
-    company: 'K-ITAD 전자',
-    department: 'IT인프라팀',
-    requestDate: '2026-03-20',
-    totalAssets: 47,
-    address: '서울특별시 강남구 테헤란로 521',
-    addressDetail: 'K-ITAD 빌딩 5층 전산실',
-    securityGrade: '기밀',
-  };
-
-  // Asset list for integrity check
-  const [integrityAssets, setIntegrityAssets] = useState([
-    { id: 'AST-001', sn: 'SN-982341', type: 'Server', manufacturer: 'Dell', model: 'PowerEdge R740', status: 'pending' as string, scanTime: '', remark: '' },
-    { id: 'AST-002', sn: 'SN-982342', type: 'Server', manufacturer: 'Dell', model: 'PowerEdge R740', status: 'pending' as string, scanTime: '', remark: '' },
-    { id: 'AST-003', sn: 'SN-123456', type: 'PC', manufacturer: 'HP', model: 'EliteDesk 800', status: 'pending' as string, scanTime: '', remark: '' },
-    { id: 'AST-004', sn: 'SN-123457', type: 'PC', manufacturer: 'HP', model: 'EliteDesk 800', status: 'pending' as string, scanTime: '', remark: '' },
-    { id: 'AST-005', sn: 'SN-778899', type: 'Notebook', manufacturer: 'Lenovo', model: 'ThinkPad X1', status: 'pending' as string, scanTime: '', remark: '' },
-    { id: 'AST-006', sn: 'SN-778900', type: 'Notebook', manufacturer: 'Lenovo', model: 'ThinkPad X1', status: 'pending' as string, scanTime: '', remark: '' },
-    { id: 'AST-007', sn: 'SN-554433', type: 'Server', manufacturer: 'NetApp', model: 'AFF A400', status: 'pending' as string, scanTime: '', remark: '' },
-    { id: 'AST-008', sn: 'SN-554434', type: 'Server', manufacturer: 'NetApp', model: 'AFF A400', status: 'pending' as string, scanTime: '', remark: '' },
-  ]);
-
-  // Mismatch modal state
-  const [mismatchModal, setMismatchModal] = useState<{open: boolean; assetId: string; sn: string}>({open: false, assetId: '', sn: ''});
-  const [mismatchReason, setMismatchReason] = useState('시리얼 다름');
-  const [mismatchMemo, setMismatchMemo] = useState('');
-  const [mismatchAction, setMismatchAction] = useState('그대로 포함');
-
-  const handleScan = (sn: string) => {
-    if (!sn.trim()) return;
-    const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const asset = integrityAssets.find(a => a.sn === sn);
-
-    if (asset) {
-      if (asset.status !== 'pending') {
-        // Duplicate scan
-        setScanFeedback({ status: 'duplicate', message: `이미 스캔 완료된 자산입니다. (${asset.id})`, sn });
-        setScanLog(prev => [{ sn, status: 'duplicate', time: now, assetId: asset.id }, ...prev]);
-      } else {
-        // Match
-        setIntegrityAssets(prev => prev.map(a => a.id === asset.id ? { ...a, status: 'matched', scanTime: now } : a));
-        setScanFeedback({ status: 'matched', message: `일치 - ${asset.type} ${asset.manufacturer} ${asset.model}`, sn });
-        setScanLog(prev => [{ sn, status: 'matched', time: now, assetId: asset.id }, ...prev]);
-      }
-    } else {
-      // Unregistered
-      setScanFeedback({ status: 'unregistered', message: '배출신청 목록에 없는 자산입니다.', sn });
-      setScanLog(prev => [{ sn, status: 'unregistered', time: now, assetId: '-' }, ...prev]);
-    }
-    setScanInput('');
-    if (continuousScan && scanInputRef.current) {
-      scanInputRef.current.focus();
-    }
-    setTimeout(() => setScanFeedback(null), 3000);
-  };
-
-  const handleMismatch = (assetId: string, sn: string) => {
-    setIntegrityAssets(prev => prev.map(a => a.id === assetId ? { ...a, status: 'mismatched', remark: `${mismatchReason}: ${mismatchMemo}`, scanTime: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) } : a));
-    setScanLog(prev => [{ sn, status: 'mismatched', time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }), assetId }, ...prev]);
-    setMismatchModal({ open: false, assetId: '', sn: '' });
-    setMismatchReason('시리얼 다름');
-    setMismatchMemo('');
-    setMismatchAction('그대로 포함');
-  };
-
-  const resetIntegrityCheck = () => {
-    setIntegrityAssets(prev => prev.map(a => ({ ...a, status: 'pending', scanTime: '', remark: '' })));
-    setScanLog([]);
-    setScanFeedback(null);
-  };
-
-  const scannedCount = integrityAssets.filter(a => a.status !== 'pending').length;
-  const matchedCount = integrityAssets.filter(a => a.status === 'matched').length;
-  const mismatchedCount = integrityAssets.filter(a => a.status === 'mismatched').length;
-  const unregisteredCount = scanLog.filter(l => l.status === 'unregistered').length;
-  const allScanned = scannedCount === integrityAssets.length;
-  const hasIssues = mismatchedCount > 0 || unregisteredCount > 0;
-
   const [currentAsset, setCurrentAsset] = useState({
     type: 'PC',
     manufacturer: '',
@@ -860,7 +832,7 @@ export default function App() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="max-w-5xl mx-auto space-y-6 pb-20"
+            className="space-y-6 pb-20"
           >
             <div className="flex items-center justify-between">
               <div>
@@ -1933,7 +1905,53 @@ export default function App() {
             </>}
           </motion.div>
         );
-      case 'transport':
+      case 'transport': {
+        const currentTransportData = transportMonitorData.transports.find(t => t.id === selectedTransport);
+        const integrityData = selectedTransport ? getIntegrityByType(selectedTransport) : null;
+
+        const totalAssets = currentTransportData?.assetCount ?? 0;
+        const matchedAssets = currentTransportData?.matchedCount ?? 0;
+        const integrityRate = totalAssets > 0 ? Math.round((matchedAssets / totalAssets) * 100) : 0;
+        const transportStatus = currentTransportData?.status ?? '—';
+        const securityGrade = currentTransportData?.securityGrade ?? '—';
+
+        const vehicleTypeOptions = ['1톤 보안차량', '2.5톤 보안차량', '5톤 보안차량', '특수보안차량'];
+        const vehicleNumbersByType: Record<string, string[]> = {
+          '1톤 보안차량': ['12가 3456', '56다 1234', '90마 9012'],
+          '2.5톤 보안차량': ['34나 7890', '78라 5678'],
+          '5톤 보안차량': ['22바 1111', '33사 2222'],
+          '특수보안차량': ['44아 3333'],
+        };
+        const driverOptions = [
+          { name: '김운송', phone: '010-1234-5678' },
+          { name: '박배송', phone: '010-5678-9012' },
+          { name: '이기사', phone: '010-3333-4444' },
+          { name: '최보안', phone: '010-7777-8888' },
+          { name: '정안전', phone: '010-1111-2222' },
+        ];
+
+        const filteredDispatch = dispatchableEmissions.filter(e => {
+          if (dispatchFilter === '전체') return true;
+          if (dispatchFilter === '배차대기') return getDispatchStatus(e.id) === '배차대기';
+          if (dispatchFilter === '배차완료') return getDispatchStatus(e.id) === '배차완료';
+          return true;
+        });
+
+        const filteredIntegrityAssets = integrityData
+          ? integrityData.scannedAssets.filter(a => {
+              const matchFilter = integrityFilter === '전체' || a.status === integrityFilter;
+              const matchSearch =
+                integritySearch === '' ||
+                a.sn.toLowerCase().includes(integritySearch.toLowerCase()) ||
+                a.model.toLowerCase().includes(integritySearch.toLowerCase()) ||
+                a.manufacturer.toLowerCase().includes(integritySearch.toLowerCase());
+              return matchFilter && matchSearch;
+            })
+          : [];
+
+        const selectedDispatchEmission = dispatchableEmissions.find(e => e.id === selectedDispatch);
+        const selectedDispatchStatus = selectedDispatch ? getDispatchStatus(selectedDispatch) : null;
+
         return (
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
@@ -1941,449 +1959,125 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.98 }}
             className="space-y-6 pb-20"
           >
-            {transportPhase === 'monitoring' ? (
-              /* =============== PHASE 2: 운송 모니터링 =============== */
-              <>
-                {/* Page Title */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                      <Navigation className="w-8 h-8 text-indigo-600" />
-                      보안운송 — 실시간 모니터링
-                    </h1>
-                    <p className="text-slate-500 mt-1">운송 차량의 위치, 보안 상태, 경로를 실시간으로 추적합니다.</p>
+            {/* Page Title */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                  <Truck className="w-8 h-8 text-indigo-600" />
+                  보안 운송
+                </h1>
+                <p className="text-slate-500 mt-1">배차 관리, 자산 정합성, 운송 정보, 실시간 모니터링을 통합 관리합니다.</p>
+              </div>
+            </div>
+
+            {/* 4 Tabs */}
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
+              {[
+                { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
+                { id: 'integrity' as const, label: '자산 정합성', icon: CheckCircle2 },
+                { id: 'info' as const, label: '운송 정보', icon: FileText },
+                { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setTransportTab(tab.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all',
+                    transportTab === tab.id
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  )}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Summary cards — shown when a transport is selected and not on dispatch tab */}
+            {currentTransportData && transportTab !== 'dispatch' && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  {
+                    label: '총 자산수',
+                    value: `${totalAssets}대`,
+                    sub: `일치 ${matchedAssets} / 불일치 ${totalAssets - matchedAssets}`,
+                    icon: ClipboardList,
+                    color: 'indigo',
+                  },
+                  {
+                    label: '정합성 완료율',
+                    value: `${integrityRate}%`,
+                    sub: integrityRate === 100 ? '전체 일치' : `불일치 ${totalAssets - matchedAssets}건 포함`,
+                    icon: CheckCircle2,
+                    color: integrityRate === 100 ? 'emerald' : 'amber',
+                  },
+                  {
+                    label: '운송상태',
+                    value: transportStatus,
+                    sub: currentTransportData.sealStatus === '정상' ? '봉인 정상' : '봉인 이상!',
+                    icon: Truck,
+                    color: transportStatus === '완료' ? 'emerald' : transportStatus === '운송중' ? 'indigo' : 'slate',
+                  },
+                  {
+                    label: '보안등급',
+                    value: securityGrade,
+                    sub: currentTransportData.sealNumber,
+                    icon: ShieldCheck,
+                    color: securityGrade === '기밀' ? 'purple' : securityGrade === '중요' ? 'amber' : 'slate',
+                  },
+                ].map((card, i) => (
+                  <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div
+                        className={cn(
+                          'w-10 h-10 rounded-xl flex items-center justify-center',
+                          card.color === 'indigo' ? 'bg-indigo-50 text-indigo-600' :
+                          card.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                          card.color === 'amber' ? 'bg-amber-50 text-amber-600' :
+                          card.color === 'purple' ? 'bg-purple-50 text-purple-600' :
+                          card.color === 'rose' ? 'bg-rose-50 text-rose-600' :
+                          'bg-slate-50 text-slate-600'
+                        )}
+                      >
+                        <card.icon className="w-5 h-5" />
+                      </div>
+                      <span className="text-sm font-bold text-slate-500">{card.label}</span>
+                    </div>
+                    <p className="text-2xl font-black text-slate-900">{card.value}</p>
+                    <p className="text-xs font-bold text-slate-400 mt-1">{card.sub}</p>
                   </div>
-                  <button
-                    onClick={() => setTransportPhase('integrity')}
-                    className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    정합성 확인으로 돌아가기
-                  </button>
-                </div>
+                ))}
+              </div>
+            )}
 
-                {/* ===== 상단 요약 카드 4개 ===== */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    {
-                      label: '금일 운송 건수',
-                      value: `${transportMonitorData.summary.todayTotal.inProgress + transportMonitorData.summary.todayTotal.completed + transportMonitorData.summary.todayTotal.scheduled}`,
-                      sub: `진행 ${transportMonitorData.summary.todayTotal.inProgress} / 완료 ${transportMonitorData.summary.todayTotal.completed} / 예정 ${transportMonitorData.summary.todayTotal.scheduled}`,
-                      icon: Truck,
-                      color: 'indigo',
-                    },
-                    {
-                      label: '경로이탈 알림',
-                      value: `${transportMonitorData.summary.routeDeviation}`,
-                      sub: transportMonitorData.summary.routeDeviation === 0 ? '이상 없음' : '이탈 감지!',
-                      icon: Route,
-                      color: transportMonitorData.summary.routeDeviation === 0 ? 'emerald' : 'rose',
-                    },
-                    {
-                      label: '봉인 상태 이상',
-                      value: `${transportMonitorData.summary.sealIssues}`,
-                      sub: transportMonitorData.summary.sealIssues === 0 ? '전체 정상' : '이상 감지!',
-                      icon: Shield,
-                      color: transportMonitorData.summary.sealIssues === 0 ? 'emerald' : 'rose',
-                    },
-                    {
-                      label: '평균 운송 소요시간',
-                      value: transportMonitorData.summary.avgDuration.value,
-                      sub: `전일 대비 ${transportMonitorData.summary.avgDuration.change}분`,
-                      icon: Timer,
-                      color: 'slate',
-                    },
-                  ].map((card, i) => (
-                    <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center",
-                          card.color === 'indigo' ? "bg-indigo-50 text-indigo-600" :
-                          card.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
-                          card.color === 'rose' ? "bg-rose-50 text-rose-600" :
-                          "bg-slate-50 text-slate-600"
-                        )}>
-                          <card.icon className="w-5 h-5" />
-                        </div>
-                        <span className="text-sm font-bold text-slate-500">{card.label}</span>
-                      </div>
-                      <p className="text-2xl font-black text-slate-900">{card.value}</p>
-                      <p className={cn(
-                        "text-xs font-bold mt-1",
-                        card.color === 'rose' ? "text-rose-500" : card.color === 'emerald' ? "text-emerald-500" : "text-slate-400"
-                      )}>{card.sub}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* ===== 메인: 지도 + 상세패널 ===== */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* 실시간 지도 영역 (2/3) */}
-                  <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                      <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                        <MapPin className="w-5 h-5 text-indigo-600" />
-                        실시간 차량 위치
-                      </h3>
-                      <div className="flex items-center gap-4 text-xs font-bold">
-                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500" /> 정상</span>
-                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400" /> 지연</span>
-                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-rose-500" /> 이상</span>
-                      </div>
-                    </div>
-                    {/* 실시간 지도 (도로지도 스타일) */}
-                    <div className="relative h-[420px] overflow-hidden bg-[#e8e4d8]">
-                      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 420" preserveAspectRatio="xMidYMid slice">
-                        {/* === 바다 / 강 === */}
-                        <rect width="800" height="420" fill="#e8e4d8" />
-                        {/* 서해 (인천 서쪽) */}
-                        <path d="M 0 0 L 120 0 L 100 50 L 80 120 L 60 200 L 50 280 L 70 350 L 90 420 L 0 420 Z" fill="#b3d4e8" opacity="0.6" />
-                        {/* 한강 */}
-                        <path d="M 800 160 C 720 155, 650 170, 580 165 C 510 160, 450 175, 380 180 C 310 185, 240 170, 180 190 C 140 200, 110 210, 60 200"
-                              stroke="#a3c9e2" strokeWidth="14" fill="none" strokeLinecap="round" opacity="0.7" />
-                        <path d="M 800 160 C 720 155, 650 170, 580 165 C 510 160, 450 175, 380 180 C 310 185, 240 170, 180 190 C 140 200, 110 210, 60 200"
-                              stroke="#b8d8ed" strokeWidth="8" fill="none" strokeLinecap="round" opacity="0.5" />
-                        {/* 안양천 */}
-                        <path d="M 520 420 C 530 380, 525 340, 530 300 C 535 260, 520 230, 500 200" stroke="#a3c9e2" strokeWidth="5" fill="none" opacity="0.5" />
-
-                        {/* === 녹지대 / 산 === */}
-                        <ellipse cx="350" cy="70" rx="60" ry="35" fill="#c5d9a4" opacity="0.4" />
-                        <ellipse cx="680" cy="90" rx="50" ry="30" fill="#c5d9a4" opacity="0.35" />
-                        <ellipse cx="750" cy="380" rx="55" ry="30" fill="#c5d9a4" opacity="0.3" />
-                        <ellipse cx="250" cy="400" rx="40" ry="25" fill="#c5d9a4" opacity="0.3" />
-
-                        {/* === 고속도로 (굵은 노란색) === */}
-                        {/* 경인고속도로 */}
-                        <path d="M 750 220 C 680 215, 600 210, 520 205 C 440 200, 350 195, 270 200 C 190 205, 140 210, 100 190"
-                              stroke="#f5d775" strokeWidth="8" fill="none" strokeLinecap="round" />
-                        <path d="M 750 220 C 680 215, 600 210, 520 205 C 440 200, 350 195, 270 200 C 190 205, 140 210, 100 190"
-                              stroke="#ffe599" strokeWidth="4" fill="none" strokeLinecap="round" />
-                        {/* 서울외곽순환 */}
-                        <path d="M 600 50 C 620 100, 640 150, 630 200 C 620 250, 590 300, 550 350 C 510 380, 460 400, 400 410"
-                              stroke="#f5d775" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.8" />
-                        {/* 영동고속도로 */}
-                        <path d="M 800 280 C 740 270, 680 265, 620 260 C 560 255, 500 250, 440 250"
-                              stroke="#f5d775" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.8" />
-
-                        {/* === 주요도로 (흰색) === */}
-                        <path d="M 600 320 C 580 290, 570 260, 560 230" stroke="#ffffff" strokeWidth="4" fill="none" />
-                        <path d="M 660 350 C 630 320, 600 280, 560 250" stroke="#ffffff" strokeWidth="4" fill="none" />
-                        <path d="M 720 370 C 690 340, 640 300, 590 270" stroke="#ffffff" strokeWidth="4" fill="none" />
-                        <path d="M 550 150 L 550 250" stroke="#ffffff" strokeWidth="3" fill="none" />
-                        <path d="M 450 130 L 450 250" stroke="#ffffff" strokeWidth="3" fill="none" />
-                        <path d="M 350 120 L 350 260" stroke="#ffffff" strokeWidth="3" fill="none" />
-                        <path d="M 200 110 L 200 260" stroke="#ffffff" strokeWidth="3" fill="none" />
-                        <path d="M 300 140 L 650 140" stroke="#ffffff" strokeWidth="3" fill="none" />
-                        <path d="M 280 260 L 700 260" stroke="#ffffff" strokeWidth="3" fill="none" />
-
-                        {/* === 지역경계 (점선) === */}
-                        <path d="M 300 0 L 280 420" stroke="#c9bfa8" strokeWidth="1" strokeDasharray="6,4" fill="none" opacity="0.6" />
-                        <path d="M 480 0 L 500 420" stroke="#c9bfa8" strokeWidth="1" strokeDasharray="6,4" fill="none" opacity="0.6" />
-
-                        {/* === 지역 라벨 === */}
-                        <text x="160" y="150" textAnchor="middle" fill="#8a7e6b" fontSize="16" fontWeight="bold" opacity="0.5">인천</text>
-                        <text x="390" y="240" textAnchor="middle" fill="#8a7e6b" fontSize="14" fontWeight="bold" opacity="0.4">부천</text>
-                        <text x="550" y="195" textAnchor="middle" fill="#8a7e6b" fontSize="16" fontWeight="bold" opacity="0.5">서울</text>
-                        <text x="680" y="320" textAnchor="middle" fill="#8a7e6b" fontSize="14" fontWeight="bold" opacity="0.4">강남</text>
-                        <text x="720" y="395" textAnchor="middle" fill="#8a7e6b" fontSize="13" fontWeight="bold" opacity="0.4">성남/판교</text>
-                        <text x="620" y="130" textAnchor="middle" fill="#8a7e6b" fontSize="12" fontWeight="bold" opacity="0.35">종로</text>
-                        <text x="540" y="340" textAnchor="middle" fill="#8a7e6b" fontSize="12" fontWeight="bold" opacity="0.35">서초</text>
-
-                        {/* === 운송 경로 (계획: 점선 / 이동한: 실선) === */}
-                        {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
-                          const route = vehicleRoutes[t.id];
-                          if (!route) return null;
-                          const pts = route.path;
-                          const planned = `M ${pts[0][0]} ${pts[0][1]} ` + pts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ');
-                          const prog = vehicleAnimProgress[t.id] ?? 0;
-                          const totalSeg = pts.length - 1;
-                          const segF = prog * totalSeg;
-                          const segIdx = Math.min(Math.floor(segF), totalSeg - 1);
-                          const localT = segF - segIdx;
-                          const traveledPts = pts.slice(0, segIdx + 1);
-                          const midX = pts[segIdx][0] + (pts[segIdx+1][0] - pts[segIdx][0]) * localT;
-                          const midY = pts[segIdx][1] + (pts[segIdx+1][1] - pts[segIdx][1]) * localT;
-                          traveledPts.push([midX, midY]);
-                          const traveled = `M ${traveledPts[0][0]} ${traveledPts[0][1]} ` + traveledPts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ');
-                          return (
-                            <g key={t.id}>
-                              <path d={planned} stroke={route.color} strokeWidth="3" fill="none" strokeDasharray="8,5" opacity="0.3" />
-                              <path d={traveled} stroke={route.color} strokeWidth="3.5" fill="none" strokeLinecap="round" opacity="0.85" />
-                            </g>
-                          );
-                        })}
-
-                        {/* === 도착지 마커 (ITAD 처리센터 인천) === */}
-                        <circle cx="155" cy="108" r="18" fill="#6366f1" opacity="0.12">
-                          <animate attributeName="r" values="18;24;18" dur="3s" repeatCount="indefinite" />
-                        </circle>
-                        <circle cx="155" cy="108" r="10" fill="#6366f1" opacity="0.25" />
-                        <circle cx="155" cy="108" r="5" fill="#6366f1" />
-                        <text x="155" y="90" textAnchor="middle" fill="#4f46e5" fontSize="10" fontWeight="bold">ITAD 처리센터</text>
-
-                        {/* === 출발지 마커들 === */}
-                        {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
-                          const route = vehicleRoutes[t.id];
-                          if (!route) return null;
-                          const [sx, sy] = route.path[0];
-                          return (
-                            <g key={`start-${t.id}`}>
-                              <circle cx={sx} cy={sy} r="6" fill="#ffffff" stroke={route.color} strokeWidth="2" />
-                              <circle cx={sx} cy={sy} r="2.5" fill={route.color} />
-                            </g>
-                          );
-                        })}
-
-                        {/* === 차량 마커들 (애니메이션 위치) === */}
-                        {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
-                          const pos = getVehiclePos(t.id);
-                          const isSelected = selectedTransport === t.id;
-                          const route = vehicleRoutes[t.id];
-                          const fillColor = route?.color ?? '#10b981';
-                          return (
-                            <g key={`vehicle-${t.id}`}
-                               style={{ cursor: 'pointer' }}
-                               onClick={() => setSelectedTransport(t.id)}
-                            >
-                              {/* 선택 상태 펄스 */}
-                              {isSelected && (
-                                <>
-                                  <circle cx={pos.x} cy={pos.y} r="20" fill={fillColor} opacity="0.15">
-                                    <animate attributeName="r" values="20;30;20" dur="2s" repeatCount="indefinite" />
-                                    <animate attributeName="opacity" values="0.15;0.05;0.15" dur="2s" repeatCount="indefinite" />
-                                  </circle>
-                                  <circle cx={pos.x} cy={pos.y} r="16" fill="none" stroke={fillColor} strokeWidth="2" opacity="0.4">
-                                    <animate attributeName="r" values="16;22;16" dur="2s" repeatCount="indefinite" />
-                                    <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="indefinite" />
-                                  </circle>
-                                </>
-                              )}
-                              {/* 차량 아이콘 배경 */}
-                              <circle cx={pos.x} cy={pos.y} r="14" fill={fillColor} stroke="#ffffff" strokeWidth="3" />
-                              {/* 트럭 아이콘 (심플 SVG) */}
-                              <g transform={`translate(${pos.x - 7}, ${pos.y - 6})`}>
-                                <rect x="0" y="4" width="10" height="7" rx="1" fill="#ffffff" opacity="0.9" />
-                                <path d="M 10 6 L 13 6 L 14 9 L 14 11 L 10 11 Z" fill="#ffffff" opacity="0.9" />
-                                <circle cx="3" cy="12" r="1.5" fill={fillColor} stroke="#ffffff" strokeWidth="0.5" />
-                                <circle cx="12" cy="12" r="1.5" fill={fillColor} stroke="#ffffff" strokeWidth="0.5" />
-                              </g>
-                              {/* 차량번호 라벨 */}
-                              <rect x={pos.x - 30} y={pos.y - 30} width="60" height="16" rx="4" fill="rgba(15,23,42,0.85)" />
-                              <text x={pos.x} y={pos.y - 19} textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">
-                                {t.id.replace('TRN-2026-', '')} · {t.driver}
-                              </text>
-                            </g>
-                          );
-                        })}
-
-                        {/* === 완료 차량 (도착지 근처) === */}
-                        {transportMonitorData.transports.filter(t => t.status === '완료').map((t, i) => (
-                          <g key={`done-${t.id}`}>
-                            <circle cx={140 + i * 25} cy={130 + i * 10} r="8" fill="#94a3b8" stroke="#ffffff" strokeWidth="2" />
-                            <path d={`M ${135 + i * 25} ${130 + i * 10} L ${139 + i * 25} ${134 + i * 10} L ${146 + i * 25} ${126 + i * 10}`} stroke="#ffffff" strokeWidth="2" fill="none" strokeLinecap="round" />
-                          </g>
-                        ))}
-                      </svg>
-
-                      {/* 범례 오버레이 */}
-                      <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border border-slate-200/50">
-                        <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500">
-                          <span className="flex items-center gap-1"><span className="w-6 h-0.5 bg-emerald-500 inline-block rounded" /> TRN-00051</span>
-                          <span className="flex items-center gap-1"><span className="w-6 h-0.5 bg-amber-500 inline-block rounded" /> TRN-00052</span>
-                          <span className="flex items-center gap-1"><span className="w-6 h-0.5 bg-indigo-500 inline-block rounded" /> TRN-00053</span>
-                        </div>
-                      </div>
-
-                      {/* 진행률 오버레이 */}
-                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border border-slate-200/50">
-                        <div className="space-y-1.5">
-                          {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
-                            const prog = Math.round((vehicleAnimProgress[t.id] ?? 0) * 100);
-                            const route = vehicleRoutes[t.id];
-                            return (
-                              <div key={t.id} className="flex items-center gap-2 text-[10px]">
-                                <span className="font-bold text-slate-600 w-10">{t.id.replace('TRN-2026-', '')}</span>
-                                <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${prog}%`, backgroundColor: route?.color ?? '#10b981' }} />
-                                </div>
-                                <span className="font-bold text-slate-500 w-7 text-right">{prog}%</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 우측 상세 패널 (1/3) */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50">
-                      <h3 className="text-sm font-bold text-slate-900">운송 상세정보</h3>
-                    </div>
-                    {selectedTransportData ? (
-                      <div className="p-4 space-y-5 flex-1 overflow-y-auto">
-                        {/* 운송 기본정보 */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">운송 기본정보</h4>
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">운송번호</span>
-                              <span className="font-bold text-slate-900">{selectedTransportData.id}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">배출신청번호</span>
-                              <span className="font-bold text-indigo-600">{selectedTransportData.emissionId}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">보안등급</span>
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-md text-xs font-bold",
-                                selectedTransportData.securityGrade === '기밀' ? "bg-purple-100 text-purple-700" :
-                                selectedTransportData.securityGrade === '중요' ? "bg-amber-100 text-amber-700" :
-                                "bg-slate-100 text-slate-600"
-                              )}>{selectedTransportData.securityGrade}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">자산 수량</span>
-                              <span className="font-bold text-slate-900">{selectedTransportData.assetCount}대</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">운송기사</span>
-                              <span className="font-bold text-slate-900">{selectedTransportData.driver}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-500">차량</span>
-                              <span className="font-bold text-slate-700 text-xs">{selectedTransportData.vehicle}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 정합성 결과 요약 */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">정합성 결과</h4>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="p-2 bg-emerald-50 rounded-lg text-center">
-                              <p className="text-lg font-black text-emerald-700">{selectedTransportData.integrityResult.matched}</p>
-                              <p className="text-[10px] font-bold text-emerald-600">일치</p>
-                            </div>
-                            <div className="p-2 bg-amber-50 rounded-lg text-center">
-                              <p className="text-lg font-black text-amber-700">{selectedTransportData.integrityResult.mismatched}</p>
-                              <p className="text-[10px] font-bold text-amber-600">불일치</p>
-                            </div>
-                            <div className="p-2 bg-rose-50 rounded-lg text-center">
-                              <p className="text-lg font-black text-rose-700">{selectedTransportData.integrityResult.unregistered}</p>
-                              <p className="text-[10px] font-bold text-rose-600">미등록</p>
-                            </div>
-                          </div>
-                          {selectedTransportData.integrityResult.mismatched > 0 && (
-                            <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 font-bold flex items-center gap-1.5">
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              불일치 건이 포함되어 있습니다
-                            </div>
-                          )}
-                        </div>
-
-                        {/* 운송 타임라인 */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">운송 타임라인</h4>
-                          <div className="space-y-0">
-                            {selectedTransportData.timeline.map((step, i) => (
-                              <div key={i} className="flex items-start gap-3">
-                                <div className="flex flex-col items-center">
-                                  <div className={cn(
-                                    "w-7 h-7 rounded-full flex items-center justify-center border-2",
-                                    step.done && step.active ? "bg-indigo-600 border-indigo-600" :
-                                    step.done ? "bg-emerald-500 border-emerald-500" :
-                                    "bg-white border-slate-200"
-                                  )}>
-                                    {step.done && !step.active && <Check className="w-3.5 h-3.5 text-white" />}
-                                    {step.active && <Radio className="w-3.5 h-3.5 text-white" />}
-                                    {!step.done && <div className="w-2 h-2 rounded-full bg-slate-200" />}
-                                  </div>
-                                  {i < selectedTransportData.timeline.length - 1 && (
-                                    <div className={cn(
-                                      "w-0.5 h-8",
-                                      step.done ? "bg-emerald-300" : "bg-slate-200"
-                                    )} />
-                                  )}
-                                </div>
-                                <div className="pt-1">
-                                  <p className={cn(
-                                    "text-sm font-bold",
-                                    step.active ? "text-indigo-600" : step.done ? "text-slate-900" : "text-slate-400"
-                                  )}>{step.step}</p>
-                                  <p className="text-xs text-slate-400">{step.time || '—'}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* 보안 상태 */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">보안 상태</h4>
-                          <div className="space-y-2">
-                            {[
-                              { label: '봉인 상태', value: selectedTransportData.sealStatus, icon: Lock, ok: selectedTransportData.sealStatus === '정상' },
-                              { label: '경로 준수', value: '정상', icon: Route, ok: true },
-                              { label: '차량 잠금', value: '잠금', icon: Shield, ok: true },
-                            ].map((sec, i) => (
-                              <div key={i} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
-                                <div className="flex items-center gap-2 text-sm text-slate-600">
-                                  <sec.icon className="w-4 h-4" />
-                                  {sec.label}
-                                </div>
-                                <span className={cn(
-                                  "px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                                  sec.ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
-                                )}>
-                                  {sec.ok ? '✅' : '⚠️'} {sec.value}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* 증빙 자료 */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">증빙 자료</h4>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl text-sm">
-                              <span className="text-slate-600 flex items-center gap-2"><Camera className="w-4 h-4" /> 상차 사진</span>
-                              <span className="text-indigo-600 font-bold text-xs cursor-pointer hover:underline">2장 보기</span>
-                            </div>
-                            <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl text-sm">
-                              <span className="text-slate-600 flex items-center gap-2"><PenTool className="w-4 h-4" /> 서명</span>
-                              <span className="text-indigo-600 font-bold text-xs cursor-pointer hover:underline">확인됨</span>
-                            </div>
-                            <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl text-sm">
-                              <span className="text-slate-600 flex items-center gap-2"><Hash className="w-4 h-4" /> 봉인번호</span>
-                              <span className="font-mono font-bold text-slate-900 text-xs">{selectedTransportData.sealNumber}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex-1 flex items-center justify-center text-slate-400 text-sm p-8 text-center">
-                        지도에서 차량 마커를 클릭하면<br />상세 정보가 표시됩니다.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* ===== 하단: 운송 목록 테이블 ===== */}
+            {/* =================== TAB: 배차 관리 =================== */}
+            {transportTab === 'dispatch' && (
+              <div className="space-y-6">
+                {/* Filter + Table */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                   <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-                    <h3 className="text-lg font-bold text-slate-900">운송 목록</h3>
+                    <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                      <ClipboardList className="w-5 h-5 text-indigo-600" />
+                      배출신청 접수 목록
+                    </h2>
                     <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="신청번호 / 업체명 검색"
+                          className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 w-52"
+                        />
+                      </div>
                       <div className="flex bg-slate-100 p-1 rounded-xl">
-                        {['전체', '운송중', '완료', '예정'].map(f => (
+                        {['전체', '배차대기', '배차완료'].map(f => (
                           <button
                             key={f}
-                            onClick={() => setTransportFilter(f)}
+                            onClick={() => setDispatchFilter(f)}
                             className={cn(
-                              "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                              transportFilter === f ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                              'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                              dispatchFilter === f ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                             )}
                           >
                             {f}
@@ -2396,662 +2090,1142 @@ export default function App() {
                     <table className="w-full text-left">
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">운송번호</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">배출신청번호</th>
+                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">신청번호</th>
+                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">신청 업체</th>
+                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산 요약</th>
+                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">수거일</th>
                           <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">보안등급</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">출발지 → 도착지</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산 수량</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">현재 상태</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">봉인 상태</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">예상 도착</th>
+                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">배차 상태</th>
+                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">액션</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {transportMonitorData.transports
-                          .filter(t => transportFilter === '전체' || t.status === transportFilter)
-                          .map(t => (
-                          <tr
-                            key={t.id}
-                            onClick={() => setSelectedTransport(t.id)}
-                            className={cn(
-                              "cursor-pointer transition-colors hover:bg-indigo-50/50",
-                              selectedTransport === t.id ? "bg-indigo-50/70" : ""
-                            )}
-                          >
-                            <td className="px-5 py-3 text-sm font-bold text-slate-900">{t.id}</td>
-                            <td className="px-5 py-3 text-sm text-indigo-600 font-bold">{t.emissionId}</td>
-                            <td className="px-5 py-3">
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-md text-[11px] font-bold",
-                                t.securityGrade === '기밀' ? "bg-purple-100 text-purple-700" :
-                                t.securityGrade === '중요' ? "bg-amber-100 text-amber-700" :
-                                "bg-slate-100 text-slate-600"
-                              )}>{t.securityGrade}</span>
-                            </td>
-                            <td className="px-5 py-3 text-sm text-slate-600">
-                              <span className="truncate max-w-[120px] inline-block">{t.from.split(' ').slice(0,2).join(' ')}</span>
-                              <span className="text-slate-400 mx-1">→</span>
-                              <span>{t.to.split(' ').slice(-1)}</span>
-                            </td>
-                            <td className="px-5 py-3 text-sm">
-                              <span className="font-bold text-slate-900">{t.assetCount}대</span>
-                              <span className="text-slate-400 text-xs ml-1">(일치 {t.matchedCount})</span>
-                            </td>
-                            <td className="px-5 py-3">
-                              <span className={cn(
-                                "px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                                t.status === '운송중' ? "bg-blue-100 text-blue-700" :
-                                t.status === '완료' ? "bg-emerald-100 text-emerald-700" :
-                                "bg-slate-100 text-slate-500"
-                              )}>{t.status}</span>
-                            </td>
-                            <td className="px-5 py-3">
-                              <span className={cn(
-                                "px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                                t.sealStatus === '정상' ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
-                              )}>
-                                {t.sealStatus === '정상' ? '✅' : '⚠️'} {t.sealStatus}
-                              </span>
-                            </td>
-                            <td className="px-5 py-3 text-sm text-slate-600 font-bold">{t.estimatedArrival}</td>
-                          </tr>
-                        ))}
+                        {filteredDispatch.map(e => {
+                          const dStatus = getDispatchStatus(e.id);
+                          const isSelected = selectedDispatch === e.id;
+                          return (
+                            <tr
+                              key={e.id}
+                              onClick={() => setSelectedDispatch(isSelected ? null : e.id)}
+                              className={cn(
+                                'cursor-pointer transition-colors hover:bg-indigo-50/40',
+                                isSelected ? 'bg-indigo-50/70' : ''
+                              )}
+                            >
+                              <td className="px-5 py-3 text-sm font-bold text-slate-900">{e.id}</td>
+                              <td className="px-5 py-3">
+                                <p className="text-sm font-bold text-slate-900">{e.company}</p>
+                                <p className="text-xs text-slate-500">{e.applicant}</p>
+                              </td>
+                              <td className="px-5 py-3 text-sm text-slate-600 max-w-[180px]">
+                                <p className="truncate">{e.assetSummary}</p>
+                                <p className="text-xs text-slate-400">{e.assetCount}대 · {e.totalWeight}</p>
+                              </td>
+                              <td className="px-5 py-3 text-sm text-slate-700 font-bold">{e.collectionDate}</td>
+                              <td className="px-5 py-3">
+                                <span
+                                  className={cn(
+                                    'px-2 py-0.5 rounded-md text-[11px] font-bold',
+                                    e.securityGrade === '기밀' ? 'bg-purple-100 text-purple-700' :
+                                    e.securityGrade === '중요' ? 'bg-amber-100 text-amber-700' :
+                                    'bg-slate-100 text-slate-600'
+                                  )}
+                                >
+                                  {e.securityGrade}
+                                </span>
+                              </td>
+                              <td className="px-5 py-3">
+                                <span
+                                  className={cn(
+                                    'px-2.5 py-1 rounded-lg text-[11px] font-bold',
+                                    dStatus === '배차완료' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                  )}
+                                >
+                                  {dStatus}
+                                </span>
+                              </td>
+                              <td className="px-5 py-3">
+                                <button
+                                  onClick={ev => { ev.stopPropagation(); setSelectedDispatch(isSelected ? null : e.id); }}
+                                  className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                                >
+                                  {dStatus === '배차대기' ? '배차 등록' : '상세 보기'}
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                {/* ===== 알림 센터 ===== */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="p-5 border-b border-slate-100">
-                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                      <Bell className="w-5 h-5 text-indigo-600" />
-                      알림
-                    </h3>
-                  </div>
-                  <div className="divide-y divide-slate-100">
-                    {transportMonitorData.alerts.length === 0 ? (
-                      <div className="p-6 text-center text-slate-400 text-sm">현재 알림이 없습니다.</div>
-                    ) : (
-                      transportMonitorData.alerts.map(alert => (
-                        <div key={alert.id} className="px-5 py-3 flex items-center gap-4">
-                          <div className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center",
-                            alert.severity === 'critical' ? "bg-rose-100" :
-                            alert.severity === 'warning' ? "bg-amber-100" :
-                            "bg-emerald-100"
-                          )}>
-                            {alert.severity === 'critical' ? <AlertCircle className="w-4 h-4 text-rose-600" /> :
-                             alert.severity === 'warning' ? <AlertTriangle className="w-4 h-4 text-amber-600" /> :
-                             <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-bold text-slate-900">{alert.type}</p>
-                            <p className="text-xs text-slate-500">{alert.transport}</p>
-                          </div>
-                          <span className="text-xs text-slate-400 font-bold">{alert.time}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-            /* =============== PHASE 1: 정합성 확인 =============== */
-            <>
-            {/* Page Title */}
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                <Truck className="w-8 h-8 text-indigo-600" />
-                보안운송 — 자산 정합성 확인
-              </h1>
-              <p className="text-slate-500 mt-1">배출신청 자산의 바코드를 스캔하여 정합성을 확인하고, 운송을 시작합니다.</p>
-            </div>
-
-            {/* ===== 상단 영역 — 배출신청 정보 ===== */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-indigo-600" />
-                  배출신청 정보
-                </h2>
-                <div className="flex items-center gap-3">
-                  <select
-                    value={selectedEmissionId}
-                    onChange={(e) => setSelectedEmissionId(e.target.value)}
-                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
-                  >
-                    <option value="DSP-2026-00123">DSP-2026-00123</option>
-                    <option value="DSP-2026-00124">DSP-2026-00124</option>
-                    <option value="DSP-2026-00125">DSP-2026-00125</option>
-                  </select>
-                  <button className="p-2 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all">
-                    <QrCode className="w-5 h-5 text-slate-600" />
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div className="p-3 bg-slate-50 rounded-xl">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">배출신청번호</p>
-                  <p className="text-sm font-bold text-slate-900 mt-1">{emissionRequestInfo.id}</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">신청 기업 / 부서</p>
-                  <p className="text-sm font-bold text-slate-900 mt-1">{emissionRequestInfo.company}</p>
-                  <p className="text-xs text-slate-500">{emissionRequestInfo.department}</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">신청일</p>
-                  <p className="text-sm font-bold text-slate-900 mt-1">{emissionRequestInfo.requestDate}</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">총 신청 자산 수</p>
-                  <p className="text-sm font-bold text-slate-900 mt-1">{emissionRequestInfo.totalAssets}대</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">수거지</p>
-                  <p className="text-sm font-bold text-slate-900 mt-1">{emissionRequestInfo.address}</p>
-                  <p className="text-xs text-slate-500">{emissionRequestInfo.addressDetail}</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">보안등급</p>
-                  <span className="inline-block mt-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-bold">{emissionRequestInfo.securityGrade}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ===== 메인 영역 — 바코드 스캔 체크 ===== */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <Scan className="w-5 h-5 text-indigo-600" />
-                  바코드 스캔 체크
-                </h2>
-                <div className="flex items-center gap-4">
-                  {/* Continuous Scan Toggle */}
-                  <button
-                    onClick={() => setContinuousScan(!continuousScan)}
-                    className="flex items-center gap-2 text-sm font-bold text-slate-600"
-                  >
-                    {continuousScan ? <ToggleRight className="w-6 h-6 text-indigo-600" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
-                    연속 스캔
-                  </button>
-                  <button
-                    onClick={resetIntegrityCheck}
-                    className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    초기화
-                  </button>
-                </div>
-              </div>
-
-              {/* Scan Input */}
-              <div className="flex gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-200">
-                <div className="relative flex-1">
-                  <QrCode className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    ref={scanInputRef}
-                    type="text"
-                    placeholder="바코드를 스캔하거나 시리얼 번호를 입력하세요..."
-                    className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-mono text-lg"
-                    value={scanInput}
-                    onChange={(e) => setScanInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleScan(scanInput)}
-                    autoFocus
-                  />
-                </div>
-                <button
-                  onClick={() => handleScan(scanInput)}
-                  className="px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20"
-                >
-                  <Scan className="w-5 h-5" />
-                  스캔
-                </button>
-                <button
-                  onClick={() => {
-                    const demoSn = integrityAssets.find(a => a.status === 'pending')?.sn;
-                    if (demoSn) handleScan(demoSn);
-                  }}
-                  className="px-6 py-4 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl font-bold hover:bg-emerald-100 transition-all flex items-center gap-2"
-                >
-                  <Play className="w-5 h-5" />
-                  데모
-                </button>
-              </div>
-
-              {/* Scan Feedback Flash */}
-              <AnimatePresence>
-                {scanFeedback && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className={cn(
-                      "p-4 rounded-xl border-2 flex items-center gap-3",
-                      scanFeedback.status === 'matched' ? "bg-emerald-50 border-emerald-300 text-emerald-800" :
-                      scanFeedback.status === 'mismatched' ? "bg-amber-50 border-amber-300 text-amber-800" :
-                      scanFeedback.status === 'unregistered' ? "bg-rose-50 border-rose-300 text-rose-800" :
-                      "bg-slate-50 border-slate-300 text-slate-600"
-                    )}
-                  >
-                    <span className="text-2xl">
-                      {scanFeedback.status === 'matched' ? '✅' : scanFeedback.status === 'mismatched' ? '⚠️' : scanFeedback.status === 'unregistered' ? '❌' : '🔄'}
-                    </span>
-                    <div>
-                      <p className="font-bold">{scanFeedback.status === 'matched' ? '일치' : scanFeedback.status === 'mismatched' ? '불일치' : scanFeedback.status === 'unregistered' ? '미등록' : '중복 스캔'}</p>
-                      <p className="text-sm">[{scanFeedback.sn}] {scanFeedback.message}</p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Recent Scan Feed */}
-              {scanLog.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">최근 스캔 로그</h4>
-                  <div className="max-h-32 overflow-y-auto space-y-1">
-                    {scanLog.slice(0, 5).map((log, i) => (
-                      <div key={i} className="flex items-center gap-3 px-3 py-2 bg-slate-50 rounded-lg text-sm">
-                        <span>{log.status === 'matched' ? '✅' : log.status === 'mismatched' ? '⚠️' : log.status === 'unregistered' ? '❌' : '🔄'}</span>
-                        <span className="font-mono text-slate-700">{log.sn}</span>
-                        <span className="text-slate-400">→</span>
-                        <span className="font-bold text-slate-600">{log.assetId}</span>
-                        <span className="ml-auto text-xs text-slate-400">{log.time}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* ===== 정합성 체크 현황 보드 ===== */}
-            <div className="space-y-6">
-              {/* Progress Bar */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-slate-700">정합성 체크 진행률</h3>
-                  <span className="text-sm font-bold text-slate-900">{scannedCount} / {integrityAssets.length}대 완료 ({integrityAssets.length > 0 ? ((scannedCount / integrityAssets.length) * 100).toFixed(1) : 0}%)</span>
-                </div>
-                <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${integrityAssets.length > 0 ? (scannedCount / integrityAssets.length) * 100 : 0}%` }}
-                    transition={{ duration: 0.5 }}
-                    className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full"
-                  />
-                </div>
-              </div>
-
-              {/* Summary Counters (4 cards) */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: '스캔 완료', value: scannedCount, icon: CheckCircle2, color: 'indigo', unit: '대' },
-                  { label: '일치', value: matchedCount, icon: Check, color: 'emerald', unit: '대' },
-                  { label: '불일치', value: mismatchedCount, icon: AlertTriangle, color: 'amber', unit: '대' },
-                  { label: '미등록', value: unregisteredCount, icon: AlertCircle, color: 'rose', unit: '대' },
-                ].map((stat, i) => (
-                  <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center",
-                        stat.color === 'indigo' ? "bg-indigo-50 text-indigo-600" :
-                        stat.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
-                        stat.color === 'amber' ? "bg-amber-50 text-amber-600" :
-                        "bg-rose-50 text-rose-600"
-                      )}>
-                        <stat.icon className="w-5 h-5" />
-                      </div>
-                      <span className="text-sm font-bold text-slate-500">{stat.label}</span>
-                    </div>
-                    <p className="text-3xl font-black text-slate-900">{stat.value}<span className="text-sm font-bold text-slate-400 ml-1">{stat.unit}</span></p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Asset Check List Table */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-                  <h3 className="text-lg font-bold text-slate-900">자산 체크 목록</h3>
-                  <div className="flex items-center gap-3">
-                    {/* Filter by scan status */}
-                    <div className="flex bg-slate-100 p-1 rounded-xl">
-                      {['전체', '일치', '불일치', '미등록', '미스캔'].map(f => (
-                        <button
-                          key={f}
-                          onClick={() => setScanFilter(f)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                            scanFilter === f ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                          )}
-                        >
-                          {f}
-                        </button>
-                      ))}
-                    </div>
-                    {/* Search */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="자산번호 / 시리얼 검색"
-                        value={scanSearch}
-                        onChange={(e) => setScanSearch(e.target.value)}
-                        className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 w-48"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">No.</th>
-                        <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산번호</th>
-                        <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산 유형</th>
-                        <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">제조사 / 모델</th>
-                        <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">시리얼 넘버</th>
-                        <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">스캔 상태</th>
-                        <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">스캔 시각</th>
-                        <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">비고</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {integrityAssets
-                        .filter(a => {
-                          if (scanFilter === '일치') return a.status === 'matched';
-                          if (scanFilter === '불일치') return a.status === 'mismatched';
-                          if (scanFilter === '미스캔') return a.status === 'pending';
-                          return true;
-                        })
-                        .filter(a => {
-                          if (!scanSearch) return true;
-                          return a.id.toLowerCase().includes(scanSearch.toLowerCase()) || a.sn.toLowerCase().includes(scanSearch.toLowerCase());
-                        })
-                        .map((asset, i) => (
-                        <tr key={asset.id} className={cn(
-                          "transition-colors",
-                          asset.status === 'matched' ? "bg-emerald-50/30" :
-                          asset.status === 'mismatched' ? "bg-amber-50/30" :
-                          asset.status === 'pending' ? "" : ""
-                        )}>
-                          <td className="px-5 py-3 text-sm text-slate-500">{i + 1}</td>
-                          <td className="px-5 py-3 text-sm font-bold text-slate-900">{asset.id}</td>
-                          <td className="px-5 py-3 text-sm text-slate-600">{asset.type}</td>
-                          <td className="px-5 py-3 text-sm text-slate-600">{asset.manufacturer} {asset.model}</td>
-                          <td className="px-5 py-3 text-sm font-mono text-slate-600">{asset.sn}</td>
-                          <td className="px-5 py-3">
-                            <span className={cn(
-                              "px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                              asset.status === 'matched' ? "bg-emerald-100 text-emerald-700" :
-                              asset.status === 'mismatched' ? "bg-amber-100 text-amber-700" :
-                              "bg-slate-100 text-slate-400"
-                            )}>
-                              {asset.status === 'matched' ? '✅ 일치' : asset.status === 'mismatched' ? '⚠️ 불일치' : '○ 미스캔'}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 text-sm text-slate-500">{asset.scanTime || '-'}</td>
-                          <td className="px-5 py-3 text-sm text-slate-500">
-                            {asset.remark || '-'}
-                            {asset.status === 'pending' && (
-                              <button
-                                onClick={() => setMismatchModal({ open: true, assetId: asset.id, sn: asset.sn })}
-                                className="ml-2 text-xs text-amber-600 hover:underline font-bold"
-                              >
-                                불일치 처리
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            {/* ===== 하단 — 정합성 확인 완료 액션 ===== */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  {!allScanned && (
-                    <p className="text-sm text-slate-500 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-amber-500" />
-                      미스캔 <span className="font-bold text-amber-600">{integrityAssets.length - scannedCount}건</span> 남음
-                    </p>
-                  )}
-                  {allScanned && !hasIssues && (
-                    <p className="text-sm text-emerald-600 font-bold flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      전체 스캔 완료 — 이상 없음
-                    </p>
-                  )}
-                  {allScanned && hasIssues && (
-                    <p className="text-sm text-amber-600 font-bold flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4" />
-                      전체 스캔 완료 — 불일치 {mismatchedCount}건, 미등록 {unregisteredCount}건
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => allScanned && setShowTransportStartPopup(true)}
-                  disabled={!allScanned}
-                  className={cn(
-                    "px-8 py-4 rounded-2xl font-bold text-lg transition-all flex items-center gap-3",
-                    !allScanned ? "bg-slate-200 text-slate-400 cursor-not-allowed" :
-                    hasIssues ? "bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20" :
-                    "bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
-                  )}
-                >
-                  <Truck className="w-6 h-6" />
-                  {!allScanned ? '운송 시작' : hasIssues ? '이상 건 확인 후 운송 시작' : '운송 시작'}
-                </button>
-              </div>
-            </div>
-
-            {/* ===== 운송 시작 확인 팝업 ===== */}
-            <AnimatePresence>
-              {showTransportStartPopup && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-                  onClick={() => setShowTransportStartPopup(false)}
-                >
-                  <motion.div
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.95, opacity: 0 }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden"
-                  >
-                    <div className="p-6 border-b border-slate-100 bg-slate-50">
-                      <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                        <Truck className="w-6 h-6 text-indigo-600" />
-                        운송 시작 확인
-                      </h3>
-                    </div>
-                    <div className="p-6 space-y-5">
-                      {/* Integrity Summary */}
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-bold text-slate-700">정합성 요약</h4>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="p-3 bg-emerald-50 rounded-xl text-center">
-                            <p className="text-2xl font-black text-emerald-700">{matchedCount}</p>
-                            <p className="text-xs font-bold text-emerald-600">일치</p>
-                          </div>
-                          <div className="p-3 bg-amber-50 rounded-xl text-center">
-                            <p className="text-2xl font-black text-amber-700">{mismatchedCount}</p>
-                            <p className="text-xs font-bold text-amber-600">불일치</p>
-                          </div>
-                          <div className="p-3 bg-rose-50 rounded-xl text-center">
-                            <p className="text-2xl font-black text-rose-700">{unregisteredCount}</p>
-                            <p className="text-xs font-bold text-rose-600">미등록</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Seal Number */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700">봉인번호 입력</label>
-                        <input
-                          type="text"
-                          placeholder="컨테이너 봉인번호를 스캔 또는 직접 입력"
-                          value={sealNumber}
-                          onChange={(e) => setSealNumber(e.target.value)}
-                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-mono"
-                        />
-                      </div>
-
-                      {/* Loading Photo */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700">상차 사진</label>
-                        <button className="w-full py-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 hover:border-indigo-300 hover:text-indigo-500 transition-all flex items-center justify-center gap-2">
-                          <Camera className="w-5 h-5" />
-                          촬영 또는 업로드
-                        </button>
-                      </div>
-
-                      {/* Signatures */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-slate-700">현장 담당자 서명</label>
-                          <div className="h-24 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 text-sm">
-                            <PenTool className="w-4 h-4 mr-2" />
-                            전자서명
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-slate-700">ITAD 기사 서명</label>
-                          <div className="h-24 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 text-sm">
-                            <PenTool className="w-4 h-4 mr-2" />
-                            전자서명
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
-                      <button
-                        onClick={() => setShowTransportStartPopup(false)}
-                        className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-all"
-                      >
-                        취소
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowTransportStartPopup(false);
-                          setTransportPhase('monitoring');
-                        }}
-                        disabled={!sealNumber}
-                        className={cn(
-                          "flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
-                          sealNumber ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/20" : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                        )}
-                      >
-                        <Truck className="w-5 h-5" />
-                        운송 시작 확정
-                      </button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ===== 불일치 처리 모달 ===== */}
-            <AnimatePresence>
-              {mismatchModal.open && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-                  onClick={() => setMismatchModal({ open: false, assetId: '', sn: '' })}
-                >
-                  <motion.div
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.95, opacity: 0 }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
-                  >
-                    <div className="p-6 border-b border-slate-100 bg-amber-50">
-                      <h3 className="text-lg font-bold text-amber-900 flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-amber-600" />
-                        불일치 / 미등록 건 처리
-                      </h3>
-                      <p className="text-sm text-amber-700 mt-1">자산: {mismatchModal.assetId} ({mismatchModal.sn})</p>
-                    </div>
-                    <div className="p-6 space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700">불일치 사유</label>
-                        <select
-                          value={mismatchReason}
-                          onChange={(e) => setMismatchReason(e.target.value)}
-                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500"
-                        >
-                          <option>시리얼 다름</option>
-                          <option>모델 다름</option>
-                          <option>외관상태 다름</option>
-                          <option>기타</option>
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700">현장 사진 촬영</label>
-                        <button className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 hover:border-amber-300 hover:text-amber-500 transition-all flex items-center justify-center gap-2">
-                          <Camera className="w-4 h-4" />
-                          촬영 / 업로드
-                        </button>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700">현장 메모</label>
-                        <textarea
-                          value={mismatchMemo}
-                          onChange={(e) => setMismatchMemo(e.target.value)}
-                          placeholder="현장 상황을 메모하세요..."
-                          className="w-full h-20 px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 resize-none"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700">처리 방법</label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {['그대로 포함', '별도 보류', '반송'].map(action => (
+                {/* Detail panel for selected dispatch item */}
+                <AnimatePresence>
+                  {selectedDispatch && selectedDispatchEmission && (
+                    <motion.div
+                      key={selectedDispatch}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+                    >
+                      {/* 배차대기 → 배차 등록 폼 */}
+                      {selectedDispatchStatus === '배차대기' ? (
+                        <div className="p-6 space-y-6">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                              <Truck className="w-5 h-5 text-indigo-600" />
+                              배차 등록 — {selectedDispatch}
+                            </h3>
                             <button
-                              key={action}
-                              onClick={() => setMismatchAction(action)}
-                              className={cn(
-                                "py-2.5 rounded-xl border-2 text-sm font-bold transition-all",
-                                mismatchAction === action ? "border-amber-500 bg-amber-50 text-amber-700" : "border-slate-100 text-slate-500"
-                              )}
+                              onClick={() => setSelectedDispatch(null)}
+                              className="text-slate-400 hover:text-slate-600 text-xl font-bold"
                             >
-                              {action}
+                              ×
                             </button>
+                          </div>
+
+                          {/* 신청 정보 요약 */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-slate-50 rounded-xl">
+                            <div>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">신청 업체</p>
+                              <p className="text-sm font-bold text-slate-900 mt-0.5">{selectedDispatchEmission.company}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">수거지</p>
+                              <p className="text-sm font-bold text-slate-900 mt-0.5 truncate">{selectedDispatchEmission.address}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">자산 수</p>
+                              <p className="text-sm font-bold text-slate-900 mt-0.5">{selectedDispatchEmission.assetCount}대</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">보안등급</p>
+                              <span className={cn(
+                                'inline-block mt-0.5 px-2 py-0.5 rounded-md text-xs font-bold',
+                                selectedDispatchEmission.securityGrade === '기밀' ? 'bg-purple-100 text-purple-700' :
+                                selectedDispatchEmission.securityGrade === '중요' ? 'bg-amber-100 text-amber-700' :
+                                'bg-slate-100 text-slate-600'
+                              )}>
+                                {selectedDispatchEmission.securityGrade}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* 배차 폼 */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* 차량 정보 */}
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                <Truck className="w-4 h-4 text-indigo-500" />
+                                차량 정보
+                              </h4>
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 mb-1">차종</label>
+                                  <div className="relative">
+                                    <select
+                                      value={dispatchForm.vehicleType}
+                                      onChange={e => setDispatchForm({ ...dispatchForm, vehicleType: e.target.value, vehicleNumber: '' })}
+                                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none bg-white"
+                                    >
+                                      {vehicleTypeOptions.map(v => (
+                                        <option key={v} value={v}>{v}</option>
+                                      ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 mb-1">차량번호</label>
+                                  <div className="relative">
+                                    <select
+                                      value={dispatchForm.vehicleNumber}
+                                      onChange={e => setDispatchForm({ ...dispatchForm, vehicleNumber: e.target.value })}
+                                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none bg-white"
+                                    >
+                                      <option value="">차량번호 선택</option>
+                                      {(vehicleNumbersByType[dispatchForm.vehicleType] ?? []).map(n => (
+                                        <option key={n} value={n}>{n}</option>
+                                      ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* 운전기사 정보 */}
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                <User className="w-4 h-4 text-indigo-500" />
+                                운전기사
+                              </h4>
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 mb-1">기사 선택</label>
+                                  <div className="relative">
+                                    <select
+                                      value={dispatchForm.driverName}
+                                      onChange={e => {
+                                        const driver = driverOptions.find(d => d.name === e.target.value);
+                                        setDispatchForm({
+                                          ...dispatchForm,
+                                          driverName: e.target.value,
+                                          driverPhone: driver?.phone ?? '',
+                                        });
+                                      }}
+                                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none bg-white"
+                                    >
+                                      <option value="">기사 선택</option>
+                                      {driverOptions.map(d => (
+                                        <option key={d.name} value={d.name}>{d.name}</option>
+                                      ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 mb-1">연락처 (자동입력)</label>
+                                  <input
+                                    type="text"
+                                    readOnly
+                                    value={dispatchForm.driverPhone}
+                                    placeholder="기사 선택 시 자동 입력"
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 font-bold outline-none"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* 상차 일시 */}
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-indigo-500" />
+                                상차 일시
+                              </h4>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 mb-1">상차일</label>
+                                  <input
+                                    type="date"
+                                    value={dispatchForm.departDate}
+                                    onChange={e => setDispatchForm({ ...dispatchForm, departDate: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 mb-1">상차시간</label>
+                                  <input
+                                    type="time"
+                                    value={dispatchForm.departTime}
+                                    onChange={e => setDispatchForm({ ...dispatchForm, departTime: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* 도착 일시 */}
+                            <div className="space-y-4">
+                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                <Building2 className="w-4 h-4 text-indigo-500" />
+                                예상 도착 일시
+                              </h4>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 mb-1">도착일</label>
+                                  <input
+                                    type="date"
+                                    value={dispatchForm.arrivalDate}
+                                    onChange={e => setDispatchForm({ ...dispatchForm, arrivalDate: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 mb-1">도착시간</label>
+                                  <input
+                                    type="time"
+                                    value={dispatchForm.arrivalTime}
+                                    onChange={e => setDispatchForm({ ...dispatchForm, arrivalTime: e.target.value })}
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 보안 조건 */}
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                              <ShieldCheck className="w-4 h-4 text-indigo-500" />
+                              보안 조건
+                            </h4>
+                            <div className="flex flex-wrap gap-4">
+                              {[
+                                { key: 'sealRequired' as const, label: '봉인 적용 필수' },
+                                { key: 'gpsTracking' as const, label: 'GPS 실시간 추적' },
+                                { key: 'securityPledge' as const, label: '보안 서약 완료' },
+                              ].map(opt => (
+                                <label key={opt.key} className="flex items-center gap-2 cursor-pointer select-none">
+                                  <div
+                                    onClick={() => setDispatchForm({ ...dispatchForm, [opt.key]: !dispatchForm[opt.key] })}
+                                    className={cn(
+                                      'w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer',
+                                      dispatchForm[opt.key]
+                                        ? 'bg-indigo-600 border-indigo-600'
+                                        : 'bg-white border-slate-300'
+                                    )}
+                                  >
+                                    {dispatchForm[opt.key] && <Check className="w-3 h-3 text-white" />}
+                                  </div>
+                                  <span className="text-sm font-bold text-slate-700">{opt.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+                            <button
+                              onClick={() => setSelectedDispatch(null)}
+                              className="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all"
+                            >
+                              취소
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedDispatch(null);
+                                setTransportTab('monitoring');
+                              }}
+                              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2"
+                            >
+                              <Truck className="w-4 h-4" />
+                              배차 등록 완료
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* 배차완료 → 요약 카드 */
+                        <div className="p-6 space-y-5">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                              배차 완료 — {selectedDispatch}
+                            </h3>
+                            <button
+                              onClick={() => setSelectedDispatch(null)}
+                              className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                            >
+                              ×
+                            </button>
+                          </div>
+                          {(() => {
+                            const tData = transportMonitorData.transports.find(t => t.emissionId === selectedDispatch);
+                            if (!tData) return null;
+                            return (
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                  {[
+                                    { label: '운송번호', value: tData.id, color: 'indigo' },
+                                    { label: '운송기사', value: tData.driver, color: 'slate' },
+                                    { label: '차량', value: tData.vehicle, color: 'slate' },
+                                    { label: '출발', value: tData.departTime, color: 'slate' },
+                                    { label: '예상도착', value: tData.estimatedArrival, color: 'slate' },
+                                    { label: '봉인번호', value: tData.sealNumber, color: 'purple' },
+                                  ].map((item, i) => (
+                                    <div key={i} className="p-3 bg-slate-50 rounded-xl">
+                                      <p className="text-[10px] text-slate-400 font-bold uppercase">{item.label}</p>
+                                      <p className={cn(
+                                        'text-sm font-bold mt-0.5',
+                                        item.color === 'indigo' ? 'text-indigo-700' :
+                                        item.color === 'purple' ? 'text-purple-700 font-mono' :
+                                        'text-slate-900'
+                                      )}>{item.value}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTransport(tData.id);
+                                      setTransportTab('monitoring');
+                                      setSelectedDispatch(null);
+                                    }}
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
+                                  >
+                                    <Monitor className="w-4 h-4" />
+                                    운송 모니터링 보기
+                                    <ArrowRight className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedTransport(tData.id);
+                                      setTransportTab('info');
+                                      setSelectedDispatch(null);
+                                    }}
+                                    className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all"
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                    운송 상세 정보
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* =================== TAB: 자산 정합성 =================== */}
+            {transportTab === 'integrity' && (
+              <>
+                {!currentTransportData ? (
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
+                    <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-bold">운송 건을 선택하면 자산 정합성 데이터가 표시됩니다.</p>
+                    <p className="text-slate-400 text-sm mt-1">배차 관리 탭에서 배차완료 건을 선택하세요.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* 유형별 수량 비교표 */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="p-5 border-b border-slate-100">
+                        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                          <ClipboardList className="w-5 h-5 text-indigo-600" />
+                          유형별 수량 비교 — {selectedTransport}
+                        </h3>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산 유형</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">신청 수량</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">실측 수량</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">차이</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">상태</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {integrityData?.types.map((row, i) => (
+                              <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-5 py-3 text-sm font-bold text-slate-900">{row.type}</td>
+                                <td className="px-5 py-3 text-sm text-slate-600 text-right font-bold">{row.registered}</td>
+                                <td className="px-5 py-3 text-sm text-slate-600 text-right font-bold">{row.scanned}</td>
+                                <td className="px-5 py-3 text-right">
+                                  <span className={cn(
+                                    'text-sm font-black',
+                                    row.diff === 0 ? 'text-emerald-600' :
+                                    row.diff < 0 ? 'text-rose-600' : 'text-amber-600'
+                                  )}>
+                                    {row.diff === 0 ? '±0' : row.diff > 0 ? `+${row.diff}` : `${row.diff}`}
+                                  </span>
+                                </td>
+                                <td className="px-5 py-3">
+                                  <span className={cn(
+                                    'px-2.5 py-1 rounded-lg text-[11px] font-bold',
+                                    row.diff === 0 ? 'bg-emerald-100 text-emerald-700' :
+                                    row.diff < 0 ? 'bg-rose-100 text-rose-700' :
+                                    'bg-amber-100 text-amber-700'
+                                  )}>
+                                    {row.diff === 0 ? '일치' : row.diff < 0 ? '누락' : '초과'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* 일치율 프로그레스바 */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-slate-900">정합성 일치율</h3>
+                        <span className={cn(
+                          'text-3xl font-black',
+                          integrityRate === 100 ? 'text-emerald-600' : integrityRate >= 90 ? 'text-amber-600' : 'text-rose-600'
+                        )}>
+                          {integrityRate}%
+                        </span>
+                      </div>
+                      <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            'h-full rounded-full transition-all duration-700',
+                            integrityRate === 100 ? 'bg-emerald-500' : integrityRate >= 90 ? 'bg-amber-500' : 'bg-rose-500'
+                          )}
+                          style={{ width: `${integrityRate}%` }}
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 pt-2">
+                        <div className="text-center p-3 bg-emerald-50 rounded-xl">
+                          <p className="text-2xl font-black text-emerald-700">{currentTransportData.integrityResult.matched}</p>
+                          <p className="text-xs font-bold text-emerald-600 mt-0.5">일치</p>
+                        </div>
+                        <div className="text-center p-3 bg-amber-50 rounded-xl">
+                          <p className="text-2xl font-black text-amber-700">{currentTransportData.integrityResult.mismatched}</p>
+                          <p className="text-xs font-bold text-amber-600 mt-0.5">불일치</p>
+                        </div>
+                        <div className="text-center p-3 bg-rose-50 rounded-xl">
+                          <p className="text-2xl font-black text-rose-700">{currentTransportData.integrityResult.unregistered}</p>
+                          <p className="text-xs font-bold text-rose-600 mt-0.5">미등록</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 현장 메모 + 현장 사진 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
+                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <Edit3 className="w-4 h-4 text-indigo-600" />
+                          현장 메모
+                        </h3>
+                        <div className="p-4 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed min-h-[80px]">
+                          {integrityData?.memo || '현장 메모 없음'}
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
+                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <Camera className="w-4 h-4 text-indigo-600" />
+                          현장 사진
+                        </h3>
+                        {integrityData?.photos && integrityData.photos.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {integrityData.photos.map((photo, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-indigo-50 rounded-lg text-sm font-bold text-slate-700 cursor-pointer transition-colors border border-slate-200 hover:border-indigo-300"
+                              >
+                                <Camera className="w-4 h-4 text-indigo-500" />
+                                {photo}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-slate-400 text-sm">등록된 사진이 없습니다.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 스캔된 자산 상세 목록 */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+                        <h3 className="text-base font-bold text-slate-900">스캔된 자산 상세 목록</h3>
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                              type="text"
+                              placeholder="S/N, 모델명 검색"
+                              value={integritySearch}
+                              onChange={e => setIntegritySearch(e.target.value)}
+                              className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 w-44"
+                            />
+                          </div>
+                          <div className="flex bg-slate-100 p-1 rounded-xl">
+                            {['전체', 'matched', 'unregistered', 'mismatched'].map(f => (
+                              <button
+                                key={f}
+                                onClick={() => setIntegrityFilter(f)}
+                                className={cn(
+                                  'px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize',
+                                  integrityFilter === f ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                )}
+                              >
+                                {f === '전체' ? '전체' : f === 'matched' ? '일치' : f === 'unregistered' ? '미등록' : '불일치'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">스캔 ID</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">S/N</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">유형</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">제조사</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">모델</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">상태</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">스캔시각</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">비고</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {filteredIntegrityAssets.map(asset => (
+                              <tr key={asset.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-5 py-3 text-sm font-bold text-slate-700">{asset.id}</td>
+                                <td className="px-5 py-3 text-sm font-mono text-slate-800">{asset.sn}</td>
+                                <td className="px-5 py-3 text-sm text-slate-600">{asset.type}</td>
+                                <td className="px-5 py-3 text-sm text-slate-600">{asset.manufacturer}</td>
+                                <td className="px-5 py-3 text-sm text-slate-700 font-bold">{asset.model}</td>
+                                <td className="px-5 py-3">
+                                  <span className={cn(
+                                    'px-2.5 py-1 rounded-lg text-[11px] font-bold',
+                                    asset.status === 'matched' ? 'bg-emerald-100 text-emerald-700' :
+                                    asset.status === 'unregistered' ? 'bg-amber-100 text-amber-700' :
+                                    'bg-rose-100 text-rose-700'
+                                  )}>
+                                    {asset.status === 'matched' ? '일치' : asset.status === 'unregistered' ? '미등록' : '불일치'}
+                                  </span>
+                                </td>
+                                <td className="px-5 py-3 text-sm text-slate-500 font-bold">{asset.scanTime}</td>
+                                <td className="px-5 py-3 text-sm text-slate-400">{asset.remark || '—'}</td>
+                              </tr>
+                            ))}
+                            {filteredIntegrityAssets.length === 0 && (
+                              <tr>
+                                <td colSpan={8} className="px-5 py-8 text-center text-slate-400 text-sm">
+                                  해당 조건의 자산이 없습니다.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* =================== TAB: 운송 정보 =================== */}
+            {transportTab === 'info' && (
+              <>
+                {!currentTransportData ? (
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
+                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-bold">운송 건을 선택하면 운송 정보가 표시됩니다.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* 운송 번호 헤더 */}
+                    <div className="flex items-center gap-3">
+                      <div className="px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-xl">
+                        <span className="text-sm font-black text-indigo-700">{currentTransportData.id}</span>
+                      </div>
+                      <span className={cn(
+                        'px-3 py-1.5 rounded-xl text-sm font-bold',
+                        currentTransportData.status === '완료' ? 'bg-emerald-100 text-emerald-700' :
+                        currentTransportData.status === '운송중' ? 'bg-blue-100 text-blue-700' :
+                        'bg-slate-100 text-slate-600'
+                      )}>
+                        {currentTransportData.status}
+                      </span>
+                    </div>
+
+                    {/* 2x2 카드 그리드 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {/* 운송회사 카드 */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <Building2 className="w-5 h-5 text-indigo-600" />
+                          운송회사
+                        </h3>
+                        <div className="space-y-3">
+                          {[
+                            { label: '회사명', value: currentTransportData.company },
+                            { label: '봉인번호', value: currentTransportData.sealNumber, mono: true },
+                            { label: '봉인 상태', value: currentTransportData.sealStatus, badge: true, ok: currentTransportData.sealStatus === '정상' },
+                          ].map((row, i) => (
+                            <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                              <span className="text-sm text-slate-500">{row.label}</span>
+                              {row.badge ? (
+                                <span className={cn(
+                                  'px-2.5 py-1 rounded-lg text-[11px] font-bold',
+                                  row.ok ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                                )}>
+                                  {row.value}
+                                </span>
+                              ) : (
+                                <span className={cn(
+                                  'text-sm font-bold text-slate-900',
+                                  row.mono ? 'font-mono text-purple-700' : ''
+                                )}>
+                                  {row.value}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 운전자 카드 */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <User className="w-5 h-5 text-indigo-600" />
+                          운전자
+                        </h3>
+                        <div className="space-y-3">
+                          {[
+                            { label: '기사명', value: currentTransportData.driver },
+                            { label: '연락처', value: currentTransportData.driverPhone },
+                            { label: '운송기사 등급', value: '1급 보안 취급' },
+                          ].map((row, i) => (
+                            <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                              <span className="text-sm text-slate-500">{row.label}</span>
+                              <span className="text-sm font-bold text-slate-900">{row.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 차량 카드 */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <Truck className="w-5 h-5 text-indigo-600" />
+                          차량
+                        </h3>
+                        <div className="space-y-3">
+                          {[
+                            { label: '차량 정보', value: currentTransportData.vehicle },
+                            { label: 'GPS 추적', value: 'ON — 실시간 연결 중' },
+                            { label: '차량 잠금', value: '잠금 상태' },
+                          ].map((row, i) => (
+                            <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                              <span className="text-sm text-slate-500">{row.label}</span>
+                              <span className="text-sm font-bold text-slate-900">{row.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 운송일정 카드 */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <Clock className="w-5 h-5 text-indigo-600" />
+                          운송일정
+                        </h3>
+                        <div className="space-y-3">
+                          {[
+                            { label: '출발지', value: currentTransportData.from },
+                            { label: '도착지', value: currentTransportData.to },
+                            { label: '출발 시각', value: currentTransportData.departTime },
+                            { label: '예상 도착', value: currentTransportData.estimatedArrival },
+                            { label: '자산 수량', value: `${currentTransportData.assetCount}대` },
+                          ].map((row, i) => (
+                            <div key={i} className="flex items-start justify-between py-2 border-b border-slate-50 last:border-0 gap-4">
+                              <span className="text-sm text-slate-500 shrink-0">{row.label}</span>
+                              <span className="text-sm font-bold text-slate-900 text-right">{row.value}</span>
+                            </div>
                           ))}
                         </div>
                       </div>
                     </div>
-                    <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
-                      <button
-                        onClick={() => setMismatchModal({ open: false, assetId: '', sn: '' })}
-                        className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-all"
-                      >
-                        취소
-                      </button>
-                      <button
-                        onClick={() => handleMismatch(mismatchModal.assetId, mismatchModal.sn)}
-                        className="flex-1 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-all"
-                      >
-                        처리 완료
-                      </button>
+
+                    {/* 배출신청 연결 정보 */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                      <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-slate-500" />
+                        연결된 배출신청
+                      </h3>
+                      {(() => {
+                        const linked = emissionRequests.find(e => e.id === currentTransportData.emissionId);
+                        if (!linked) return <p className="text-slate-400 text-sm">연결된 배출신청 없음</p>;
+                        return (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[
+                              { label: '신청번호', value: linked.id },
+                              { label: '신청 업체', value: `${linked.company} · ${linked.applicant}` },
+                              { label: '수거지', value: linked.address },
+                              { label: '삭제 등급', value: linked.deletionGrade },
+                            ].map((item, i) => (
+                              <div key={i} className="p-3 bg-slate-50 rounded-xl">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">{item.label}</p>
+                                <p className="text-sm font-bold text-slate-900 mt-0.5 truncate">{item.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            </>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* =================== TAB: 운송 모니터링 =================== */}
+            {transportTab === 'monitoring' && (
+              <>
+                {!currentTransportData ? (
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
+                    <Monitor className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-bold">운송 건을 선택하면 모니터링 화면이 표시됩니다.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* 타임라인 — horizontal step indicator */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                      <h3 className="text-base font-bold text-slate-900 mb-5 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-indigo-600" />
+                        운송 타임라인 — {currentTransportData.id}
+                      </h3>
+                      <div className="flex items-center justify-between relative">
+                        {/* connecting line */}
+                        <div className="absolute top-[18px] left-6 right-6 h-0.5 bg-slate-200" />
+                        <div
+                          className="absolute top-[18px] left-6 h-0.5 bg-emerald-500 transition-all duration-700"
+                          style={{
+                            width: `${
+                              (() => {
+                                const steps = currentTransportData.timeline;
+                                const doneCount = steps.filter(s => s.done).length;
+                                if (doneCount === 0) return 0;
+                                if (doneCount >= steps.length) return 100;
+                                const pct = ((doneCount - 0.5) / (steps.length - 1)) * 100;
+                                return Math.min(pct, 100);
+                              })()
+                            }%`
+                          }}
+                        />
+                        {currentTransportData.timeline.map((step, i) => (
+                          <div key={i} className="flex flex-col items-center gap-2 relative z-10" style={{ flex: '1' }}>
+                            <div className={cn(
+                              'w-9 h-9 rounded-full flex items-center justify-center border-2 shadow-sm',
+                              step.done && step.active ? 'bg-indigo-600 border-indigo-600' :
+                              step.done ? 'bg-emerald-500 border-emerald-500' :
+                              'bg-white border-slate-200'
+                            )}>
+                              {step.done && !step.active && <Check className="w-4 h-4 text-white" />}
+                              {step.active && (
+                                <span className="w-3 h-3 rounded-full bg-white animate-pulse" />
+                              )}
+                              {!step.done && (
+                                <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
+                              )}
+                            </div>
+                            <div className="text-center">
+                              <p className={cn(
+                                'text-xs font-bold',
+                                step.active ? 'text-indigo-600' : step.done ? 'text-slate-900' : 'text-slate-400'
+                              )}>
+                                {step.step}
+                              </p>
+                              <p className="text-[10px] text-slate-400">{step.time || '—'}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Map + Alert sidebar */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* SVG Map */}
+                      <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <Monitor className="w-4 h-4 text-indigo-600" />
+                            실시간 차량 위치
+                          </h3>
+                          <div className="flex items-center gap-4 text-xs font-bold">
+                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" /> TRN-00051</span>
+                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400 inline-block" /> TRN-00052</span>
+                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-indigo-500 inline-block" /> TRN-00053</span>
+                          </div>
+                        </div>
+                        <div className="relative h-[400px] bg-[#e8e4d8] overflow-hidden">
+                          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 420" preserveAspectRatio="xMidYMid slice">
+                            <rect width="800" height="420" fill="#e8e4d8" />
+                            {/* 서해 */}
+                            <path d="M 0 0 L 120 0 L 100 50 L 80 120 L 60 200 L 50 280 L 70 350 L 90 420 L 0 420 Z" fill="#b3d4e8" opacity="0.6" />
+                            {/* 한강 */}
+                            <path d="M 800 160 C 720 155, 650 170, 580 165 C 510 160, 450 175, 380 180 C 310 185, 240 170, 180 190 C 140 200, 110 210, 60 200" stroke="#a3c9e2" strokeWidth="14" fill="none" strokeLinecap="round" opacity="0.7" />
+                            <path d="M 800 160 C 720 155, 650 170, 580 165 C 510 160, 450 175, 380 180 C 310 185, 240 170, 180 190 C 140 200, 110 210, 60 200" stroke="#b8d8ed" strokeWidth="8" fill="none" strokeLinecap="round" opacity="0.5" />
+                            {/* 녹지 */}
+                            <ellipse cx="350" cy="70" rx="60" ry="35" fill="#c5d9a4" opacity="0.4" />
+                            <ellipse cx="680" cy="90" rx="50" ry="30" fill="#c5d9a4" opacity="0.35" />
+                            <ellipse cx="750" cy="380" rx="55" ry="30" fill="#c5d9a4" opacity="0.3" />
+                            {/* 고속도로 */}
+                            <path d="M 750 220 C 680 215, 600 210, 520 205 C 440 200, 350 195, 270 200 C 190 205, 140 210, 100 190" stroke="#f5d775" strokeWidth="8" fill="none" strokeLinecap="round" />
+                            <path d="M 750 220 C 680 215, 600 210, 520 205 C 440 200, 350 195, 270 200 C 190 205, 140 210, 100 190" stroke="#ffe599" strokeWidth="4" fill="none" strokeLinecap="round" />
+                            {/* 주요도로 */}
+                            <path d="M 550 150 L 550 250" stroke="#ffffff" strokeWidth="3" fill="none" />
+                            <path d="M 450 130 L 450 250" stroke="#ffffff" strokeWidth="3" fill="none" />
+                            <path d="M 350 120 L 350 260" stroke="#ffffff" strokeWidth="3" fill="none" />
+                            <path d="M 200 110 L 200 260" stroke="#ffffff" strokeWidth="3" fill="none" />
+                            <path d="M 300 140 L 650 140" stroke="#ffffff" strokeWidth="3" fill="none" />
+                            <path d="M 280 260 L 700 260" stroke="#ffffff" strokeWidth="3" fill="none" />
+                            {/* 지역 라벨 */}
+                            <text x="160" y="150" textAnchor="middle" fill="#8a7e6b" fontSize="16" fontWeight="bold" opacity="0.5">인천</text>
+                            <text x="550" y="195" textAnchor="middle" fill="#8a7e6b" fontSize="16" fontWeight="bold" opacity="0.5">서울</text>
+                            <text x="680" y="320" textAnchor="middle" fill="#8a7e6b" fontSize="14" fontWeight="bold" opacity="0.4">강남</text>
+                            <text x="720" y="395" textAnchor="middle" fill="#8a7e6b" fontSize="13" fontWeight="bold" opacity="0.4">성남/판교</text>
+                            {/* 운송 경로 */}
+                            {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
+                              const route = vehicleRoutes[t.id];
+                              if (!route) return null;
+                              const pts = route.path;
+                              const planned = `M ${pts[0][0]} ${pts[0][1]} ` + pts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ');
+                              const prog = vehicleAnimProgress[t.id] ?? 0;
+                              const totalSeg = pts.length - 1;
+                              const segF = prog * totalSeg;
+                              const segIdx = Math.min(Math.floor(segF), totalSeg - 1);
+                              const localT = segF - segIdx;
+                              const traveledPts = pts.slice(0, segIdx + 1);
+                              const midX = pts[segIdx][0] + (pts[segIdx + 1][0] - pts[segIdx][0]) * localT;
+                              const midY = pts[segIdx][1] + (pts[segIdx + 1][1] - pts[segIdx][1]) * localT;
+                              traveledPts.push([midX, midY]);
+                              const traveled = `M ${traveledPts[0][0]} ${traveledPts[0][1]} ` + traveledPts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ');
+                              return (
+                                <g key={t.id}>
+                                  <path d={planned} stroke={route.color} strokeWidth="3" fill="none" strokeDasharray="8,5" opacity="0.3" />
+                                  <path d={traveled} stroke={route.color} strokeWidth="3.5" fill="none" strokeLinecap="round" opacity="0.85" />
+                                </g>
+                              );
+                            })}
+                            {/* 도착지 마커 */}
+                            <circle cx="155" cy="108" r="18" fill="#6366f1" opacity="0.12">
+                              <animate attributeName="r" values="18;24;18" dur="3s" repeatCount="indefinite" />
+                            </circle>
+                            <circle cx="155" cy="108" r="10" fill="#6366f1" opacity="0.25" />
+                            <circle cx="155" cy="108" r="5" fill="#6366f1" />
+                            <text x="155" y="90" textAnchor="middle" fill="#4f46e5" fontSize="10" fontWeight="bold">ITAD 처리센터</text>
+                            {/* 출발지 마커들 */}
+                            {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
+                              const route = vehicleRoutes[t.id];
+                              if (!route) return null;
+                              const [sx, sy] = route.path[0];
+                              return (
+                                <g key={`start-${t.id}`}>
+                                  <circle cx={sx} cy={sy} r="6" fill="#ffffff" stroke={route.color} strokeWidth="2" />
+                                  <circle cx={sx} cy={sy} r="2.5" fill={route.color} />
+                                </g>
+                              );
+                            })}
+                            {/* 차량 마커들 */}
+                            {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
+                              const pos = getVehiclePos(t.id);
+                              const isSelectedVehicle = selectedTransport === t.id;
+                              const route = vehicleRoutes[t.id];
+                              const fillColor = route?.color ?? '#10b981';
+                              return (
+                                <g key={`vehicle-${t.id}`} style={{ cursor: 'pointer' }} onClick={() => setSelectedTransport(t.id)}>
+                                  {isSelectedVehicle && (
+                                    <>
+                                      <circle cx={pos.x} cy={pos.y} r="20" fill={fillColor} opacity="0.15">
+                                        <animate attributeName="r" values="20;30;20" dur="2s" repeatCount="indefinite" />
+                                        <animate attributeName="opacity" values="0.15;0.05;0.15" dur="2s" repeatCount="indefinite" />
+                                      </circle>
+                                      <circle cx={pos.x} cy={pos.y} r="16" fill="none" stroke={fillColor} strokeWidth="2" opacity="0.4">
+                                        <animate attributeName="r" values="16;22;16" dur="2s" repeatCount="indefinite" />
+                                        <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="indefinite" />
+                                      </circle>
+                                    </>
+                                  )}
+                                  <circle cx={pos.x} cy={pos.y} r="14" fill={fillColor} stroke="#ffffff" strokeWidth="3" />
+                                  <g transform={`translate(${pos.x - 7}, ${pos.y - 6})`}>
+                                    <rect x="0" y="4" width="10" height="7" rx="1" fill="#ffffff" opacity="0.9" />
+                                    <path d="M 10 6 L 13 6 L 14 9 L 14 11 L 10 11 Z" fill="#ffffff" opacity="0.9" />
+                                    <circle cx="3" cy="12" r="1.5" fill={fillColor} stroke="#ffffff" strokeWidth="0.5" />
+                                    <circle cx="12" cy="12" r="1.5" fill={fillColor} stroke="#ffffff" strokeWidth="0.5" />
+                                  </g>
+                                  <rect x={pos.x - 30} y={pos.y - 30} width="60" height="16" rx="4" fill="rgba(15,23,42,0.85)" />
+                                  <text x={pos.x} y={pos.y - 19} textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">
+                                    {t.id.replace('TRN-2026-', '')} · {t.driver}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                            {/* 완료 차량 */}
+                            {transportMonitorData.transports.filter(t => t.status === '완료').map((t, i) => (
+                              <g key={`done-${t.id}`}>
+                                <circle cx={140 + i * 25} cy={130 + i * 10} r="8" fill="#94a3b8" stroke="#ffffff" strokeWidth="2" />
+                                <path d={`M ${135 + i * 25} ${130 + i * 10} L ${139 + i * 25} ${134 + i * 10} L ${146 + i * 25} ${126 + i * 10}`} stroke="#ffffff" strokeWidth="2" fill="none" strokeLinecap="round" />
+                              </g>
+                            ))}
+                          </svg>
+                          {/* 진행률 오버레이 */}
+                          <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border border-slate-200/50">
+                            <div className="space-y-1.5">
+                              {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
+                                const prog = Math.round((vehicleAnimProgress[t.id] ?? 0) * 100);
+                                const route = vehicleRoutes[t.id];
+                                return (
+                                  <div key={t.id} className="flex items-center gap-2 text-[10px]">
+                                    <span className="font-bold text-slate-600 w-10">{t.id.replace('TRN-2026-', '')}</span>
+                                    <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${prog}%`, backgroundColor: route?.color ?? '#10b981' }} />
+                                    </div>
+                                    <span className="font-bold text-slate-500 w-7 text-right">{prog}%</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Alert log sidebar */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                        <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-indigo-600" />
+                          <h3 className="text-base font-bold text-slate-900">알림 로그</h3>
+                          {transportMonitorData.alerts.length > 0 && (
+                            <span className="ml-auto bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full">
+                              {transportMonitorData.alerts.length}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                          {transportMonitorData.alerts.length === 0 ? (
+                            <div className="p-6 text-center text-slate-400 text-sm">현재 알림이 없습니다.</div>
+                          ) : (
+                            transportMonitorData.alerts.map(alert => (
+                              <div key={alert.id} className="px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors">
+                                <div className={cn(
+                                  'w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5',
+                                  alert.severity === 'critical' ? 'bg-rose-100' :
+                                  alert.severity === 'warning' ? 'bg-amber-100' :
+                                  'bg-emerald-100'
+                                )}>
+                                  {alert.severity === 'critical' ? (
+                                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                                  ) : alert.severity === 'warning' ? (
+                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                                  ) : (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-bold text-slate-900">{alert.type}</p>
+                                  <p className="text-xs text-slate-500 truncate">{alert.transport}</p>
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-bold shrink-0">{alert.time}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        {/* 운송 상세 보안 정보 */}
+                        <div className="border-t border-slate-100 p-4 space-y-3 bg-slate-50/50">
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">보안 상태</h4>
+                          {[
+                            { label: '봉인 상태', value: currentTransportData.sealStatus, ok: currentTransportData.sealStatus === '정상' },
+                            { label: '경로 준수', value: '정상', ok: true },
+                            { label: '차량 잠금', value: '잠금', ok: true },
+                          ].map((sec, i) => (
+                            <div key={i} className="flex items-center justify-between text-sm">
+                              <span className="text-slate-500">{sec.label}</span>
+                              <span className={cn(
+                                'px-2 py-0.5 rounded-md text-[11px] font-bold',
+                                sec.ok ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                              )}>
+                                {sec.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 운송 목록 테이블 */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+                        <h3 className="text-base font-bold text-slate-900">운송 목록</h3>
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                          {['전체', '운송중', '완료', '예정'].map(f => (
+                            <button
+                              key={f}
+                              onClick={() => setTransportFilter(f)}
+                              className={cn(
+                                'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                                transportFilter === f ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                              )}
+                            >
+                              {f}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">운송번호</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">배출신청번호</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">보안등급</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">출발지 → 도착지</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산 수량</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">현재 상태</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">봉인 상태</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">예상 도착</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {transportMonitorData.transports
+                              .filter(t => transportFilter === '전체' || t.status === transportFilter)
+                              .map(t => (
+                                <tr
+                                  key={t.id}
+                                  onClick={() => setSelectedTransport(t.id)}
+                                  className={cn(
+                                    'cursor-pointer transition-colors hover:bg-indigo-50/50',
+                                    selectedTransport === t.id ? 'bg-indigo-50/70' : ''
+                                  )}
+                                >
+                                  <td className="px-5 py-3 text-sm font-bold text-slate-900">{t.id}</td>
+                                  <td className="px-5 py-3 text-sm text-indigo-600 font-bold">{t.emissionId}</td>
+                                  <td className="px-5 py-3">
+                                    <span className={cn(
+                                      'px-2 py-0.5 rounded-md text-[11px] font-bold',
+                                      t.securityGrade === '기밀' ? 'bg-purple-100 text-purple-700' :
+                                      t.securityGrade === '중요' ? 'bg-amber-100 text-amber-700' :
+                                      'bg-slate-100 text-slate-600'
+                                    )}>
+                                      {t.securityGrade}
+                                    </span>
+                                  </td>
+                                  <td className="px-5 py-3 text-sm text-slate-600">
+                                    <span className="truncate max-w-[100px] inline-block">{t.from.split(' ').slice(0, 2).join(' ')}</span>
+                                    <span className="text-slate-400 mx-1">→</span>
+                                    <span>{t.to.split(' ').slice(-1)}</span>
+                                  </td>
+                                  <td className="px-5 py-3 text-sm">
+                                    <span className="font-bold text-slate-900">{t.assetCount}대</span>
+                                    <span className="text-slate-400 text-xs ml-1">(일치 {t.matchedCount})</span>
+                                  </td>
+                                  <td className="px-5 py-3">
+                                    <span className={cn(
+                                      'px-2.5 py-1 rounded-lg text-[11px] font-bold',
+                                      t.status === '운송중' ? 'bg-blue-100 text-blue-700' :
+                                      t.status === '완료' ? 'bg-emerald-100 text-emerald-700' :
+                                      'bg-slate-100 text-slate-500'
+                                    )}>
+                                      {t.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-5 py-3">
+                                    <span className={cn(
+                                      'px-2.5 py-1 rounded-lg text-[11px] font-bold',
+                                      t.sealStatus === '정상' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                                    )}>
+                                      {t.sealStatus}
+                                    </span>
+                                  </td>
+                                  <td className="px-5 py-3 text-sm text-slate-600 font-bold">{t.estimatedArrival}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         );
+      }
+
+
       case 'disposal':
         return (
           <motion.div
@@ -5007,10 +5181,6 @@ export default function App() {
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold mb-6">
-                <Zap className="w-3 h-3" />
-                <span>국내 최초 지능형 ITAD 통합 플랫폼</span>
-              </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 leading-tight tracking-tight">
                 <span className="block whitespace-nowrap">IT 자산의 <span className="text-emerald-500">완벽한</span> 데이터 파기와</span>
                 <span className="block whitespace-nowrap">투명한 자원 순환 관리까지</span>
@@ -5245,8 +5415,8 @@ export default function App() {
               <p className="text-slate-600 text-lg leading-relaxed">
                 기업이 더 이상 쓰지 않는 PC, 서버, 모바일 기기 등을 안전하게 회수하고, 데이터를 완전 삭제한 뒤, 재활용·재판매·폐기까지 처리하는 일련의 프로세스입니다.
               </p>
-              <div className="mt-8 inline-block px-4 py-1 bg-slate-200 rounded-full text-sm font-bold text-slate-600">
-                핵심은 세 가지입니다
+              <div className="mt-8 inline-block px-5 py-2 bg-slate-200 rounded-full text-lg font-bold text-slate-700">
+                ITAD의 3대 핵심 가치
               </div>
             </div>
             
