@@ -258,6 +258,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('emission');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState<'emitter' | 'admin'>('emitter'); // emitter: 배출처, admin: 협회/정부
+  const [userCompany, setUserCompany] = useState('K-ITAD 전자');
   const [showInquiryBoard, setShowInquiryBoard] = useState(false);
   const [supportTab, setSupportTab] = useState('board');
   const [showInquiryModal, setShowInquiryModal] = useState(false);
@@ -592,13 +594,23 @@ export default function App() {
   };
 
   // ===== Disposal (데이터 폐기) State =====
-  const [disposalTab, setDisposalTab] = useState<'progress' | 'detail' | 'certificates' | 'stats'>('progress');
+  const [disposalTab, setDisposalTab] = useState<'status' | 'work' | 'verify' | 'stats'>('status');
   const [disposalStepFilter, setDisposalStepFilter] = useState('전체');
   const [disposalSearch, setDisposalSearch] = useState('');
   const [disposalMethodFilter, setDisposalMethodFilter] = useState('전체');
   const [disposalDelayOnly, setDisposalDelayOnly] = useState(false);
   const [selectedDisposalAsset, setSelectedDisposalAsset] = useState<string | null>(null);
   const [certChecked, setCertChecked] = useState<string[]>([]);
+  const [selectedEmissionForDisposal, setSelectedEmissionForDisposal] = useState<string | null>(null);
+  const [disposalCheckedAssets, setDisposalCheckedAssets] = useState<string[]>([]);
+  const [disposalWorkForm, setDisposalWorkForm] = useState({
+    method: '소프트웨어 삭제',
+    grade: 'NIST 800-88',
+    software: 'Blancco Drive Eraser 7.2',
+    operator: '김보안',
+    result: '성공',
+    failReason: '',
+  });
 
   // ===== 올바로 연동 State =====
   const [allbaroTab, setAllbaroTab] = useState<'manifest' | 'history' | 'verify' | 'result' | 'alerts'>('manifest');
@@ -654,49 +666,84 @@ export default function App() {
     return matchFilter && matchSearch;
   });
 
+  // ===== 자원 순환 (Circulation) State =====
+  const [selectedCircStat, setSelectedCircStat] = useState('processing');
+  const [selectedCircPeriod, setSelectedCircPeriod] = useState('최근 6개월');
+
+  // ===== 리포트 센터 State =====
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+
   // ===== 자산 처리 (Asset Processing) State =====
-  const [processingTab, setProcessingTab] = useState<'status' | 'disassembly' | 'disposition' | 'stats'>('status');
+  const [processingTab, setProcessingTab] = useState<'inspection' | 'disassembly' | 'disposition' | 'stats'>('inspection');
   const [selectedProcessingAsset, setSelectedProcessingAsset] = useState<string | null>(null);
   const [processingFilter, setProcessingFilter] = useState('전체');
+  const [selectedProcEmission, setSelectedProcEmission] = useState<string | null>(null);
+  const [procCheckedAssets, setProcCheckedAssets] = useState<string[]>([]);
+  const [procInspectionForm, setProcInspectionForm] = useState({
+    appearance: '양호',
+    working: '정상',
+    verdict: '분해 대상',
+    inspector: '정분해',
+    note: '',
+  });
+  const [selectedDisassemblyAsset, setSelectedDisassemblyAsset] = useState<string | null>(null);
+  const [procDispositionFilter, setProcDispositionFilter] = useState('전체');
+
+  // 입고 대상 = 데이터폐기 완료 자산 (배출요청건별)
+  const procIncomingAssets = [
+    // DSP-2026-00123: K-ITAD 전자 — 폐기완료 2건
+    { id: 'PRC-001', emissionId: 'DSP-2026-00123', assetId: 'AST-001', type: 'Server', model: 'Dell PowerEdge R740', company: 'K-ITAD 전자', department: 'IT인프라팀', stage: '분해완료' as string, appearance: '양호', working: '불량', verdict: '분해 대상' as string, inspector: '정분해', inspectedDate: '2026-03-23' },
+    { id: 'PRC-002', emissionId: 'DSP-2026-00123', assetId: 'AST-007', type: 'Server', model: 'NetApp AFF A400', company: 'K-ITAD 전자', department: 'IT인프라팀', stage: '검수완료' as string, appearance: '양호', working: '정상', verdict: '재사용 가능' as string, inspector: '정분해', inspectedDate: '2026-03-23' },
+    // DSP-2026-00120: 현대모비스 — 폐기완료 3건
+    { id: 'PRC-003', emissionId: 'DSP-2026-00120', assetId: 'AST-013', type: 'Server', model: 'HP ProLiant DL380', company: '현대모비스', department: 'DX실', stage: '처분완료' as string, appearance: '양호', working: '불량', verdict: '분해 대상' as string, inspector: '정분해', inspectedDate: '2026-03-19' },
+    { id: 'PRC-004', emissionId: 'DSP-2026-00120', assetId: 'AST-014', type: 'Server', model: 'HP ProLiant DL380', company: '현대모비스', department: 'DX실', stage: '분해중' as string, appearance: '양호', working: '불량', verdict: '분해 대상' as string, inspector: '정분해', inspectedDate: '2026-03-19' },
+    { id: 'PRC-005', emissionId: 'DSP-2026-00120', assetId: 'AST-015', type: 'PC', model: 'Dell OptiPlex 5090', company: '현대모비스', department: 'DX실', stage: '검수대기' as string, appearance: '', working: '', verdict: '' as string, inspector: '', inspectedDate: '' },
+  ];
+
+  // 배출요청건별 그룹핑
+  const procEmissionGroups = React.useMemo(() => {
+    const groups: Record<string, { emissionId: string; company: string; department: string; totalCount: number; inspectedCount: number; assets: typeof procIncomingAssets }> = {};
+    procIncomingAssets.forEach(a => {
+      if (!groups[a.emissionId]) {
+        groups[a.emissionId] = { emissionId: a.emissionId, company: a.company, department: a.department, totalCount: 0, inspectedCount: 0, assets: [] };
+      }
+      groups[a.emissionId].totalCount++;
+      if (a.stage !== '검수대기') groups[a.emissionId].inspectedCount++;
+      groups[a.emissionId].assets.push(a);
+    });
+    return Object.values(groups);
+  }, []);
+
+  const selectedProcAssets = selectedProcEmission ? procIncomingAssets.filter(a => a.emissionId === selectedProcEmission) : [];
+
+  // 분해 부품 데이터
+  const procParts = [
+    // PRC-001 (Dell PowerEdge R740) — 분해완료
+    { id: 'P-001-1', parentId: 'PRC-001', parentAsset: 'AST-001', parentModel: 'Dell PowerEdge R740', name: 'CPU (Xeon Gold 6248)', category: 'CPU', condition: '양호', route: '재제조' as string, material: '', weight: '0.3kg', value: '₩85,000', dispositionStatus: '출하완료' as string },
+    { id: 'P-001-2', parentId: 'PRC-001', parentAsset: 'AST-001', parentModel: 'Dell PowerEdge R740', name: 'RAM DDR4 32GB x4', category: 'RAM', condition: '양호', route: '재제조' as string, material: '', weight: '0.4kg', value: '₩120,000', dispositionStatus: '출하완료' as string },
+    { id: 'P-001-3', parentId: 'PRC-001', parentAsset: 'AST-001', parentModel: 'Dell PowerEdge R740', name: 'HDD Seagate Exos 18TB', category: 'Storage', condition: '폐기완료', route: '폐기' as string, material: '', weight: '0.8kg', value: '—', dispositionStatus: '소각완료' as string },
+    { id: 'P-001-4', parentId: 'PRC-001', parentAsset: 'AST-001', parentModel: 'Dell PowerEdge R740', name: '파워서플라이 750W', category: 'PSU', condition: '양호', route: '재제조' as string, material: '', weight: '1.5kg', value: '₩35,000', dispositionStatus: '출하완료' as string },
+    { id: 'P-001-5', parentId: 'PRC-001', parentAsset: 'AST-001', parentModel: 'Dell PowerEdge R740', name: '메인보드', category: 'PCB', condition: '수명초과', route: '재활용' as string, material: 'Au 0.3g, Cu 45g', weight: '1.2kg', value: '₩28,000', dispositionStatus: '납품완료' as string },
+    { id: 'P-001-6', parentId: 'PRC-001', parentAsset: 'AST-001', parentModel: 'Dell PowerEdge R740', name: '섀시 (알루미늄)', category: 'Chassis', condition: '양호', route: '재활용' as string, material: 'Al 4.2kg', weight: '4.5kg', value: '₩12,000', dispositionStatus: '납품완료' as string },
+    { id: 'P-001-7', parentId: 'PRC-001', parentAsset: 'AST-001', parentModel: 'Dell PowerEdge R740', name: '쿨링팬 x3', category: 'Cooling', condition: '불량', route: '폐기' as string, material: '', weight: '0.6kg', value: '—', dispositionStatus: '소각대기' as string },
+    { id: 'P-001-8', parentId: 'PRC-001', parentAsset: 'AST-001', parentModel: 'Dell PowerEdge R740', name: '케이블류', category: 'Cable', condition: '—', route: '재활용' as string, material: 'Cu 0.5kg', weight: '0.8kg', value: '₩3,000', dispositionStatus: '납품완료' as string },
+    // PRC-003 (HP ProLiant DL380) — 처분완료
+    { id: 'P-003-1', parentId: 'PRC-003', parentAsset: 'AST-013', parentModel: 'HP ProLiant DL380', name: 'CPU (Xeon Silver 4214) x2', category: 'CPU', condition: '양호', route: '재제조' as string, material: '', weight: '0.6kg', value: '₩110,000', dispositionStatus: '출하완료' as string },
+    { id: 'P-003-2', parentId: 'PRC-003', parentAsset: 'AST-013', parentModel: 'HP ProLiant DL380', name: 'RAM DDR4 64GB x8', category: 'RAM', condition: '양호', route: '재제조' as string, material: '', weight: '0.8kg', value: '₩280,000', dispositionStatus: '출하완료' as string },
+    { id: 'P-003-3', parentId: 'PRC-003', parentAsset: 'AST-013', parentModel: 'HP ProLiant DL380', name: '메인보드', category: 'PCB', condition: '수명초과', route: '재활용' as string, material: 'Au 0.5g, Cu 60g', weight: '1.8kg', value: '₩45,000', dispositionStatus: '납품완료' as string },
+    { id: 'P-003-4', parentId: 'PRC-003', parentAsset: 'AST-013', parentModel: 'HP ProLiant DL380', name: '섀시 (알루미늄)', category: 'Chassis', condition: '양호', route: '재활용' as string, material: 'Al 6.8kg', weight: '7.2kg', value: '₩18,000', dispositionStatus: '납품완료' as string },
+    { id: 'P-003-5', parentId: 'PRC-003', parentAsset: 'AST-013', parentModel: 'HP ProLiant DL380', name: '파워서플라이 1200W x2', category: 'PSU', condition: '양호', route: '재제조' as string, material: '', weight: '3.2kg', value: '₩90,000', dispositionStatus: '출하완료' as string },
+  ];
 
   const assetProcessingData = {
-    summary: { awaiting: 5, disassembling: 3, sorted: 8, disposed: 42, totalParts: 386, reuseRate: 28.5, recycleRate: 64.2, wasteRate: 7.3 },
-    assets: [
-      { id: 'PRC-001', sourceId: 'DIS-001', assetId: 'AST-001', type: 'Server', model: 'Dell PowerEdge R740', stage: '분류완료' as string, startDate: '2026-03-22', endDate: '2026-03-23', operator: '정분해',
-        parts: [
-          { id: 'P-001-1', name: 'CPU (Xeon Gold 6248)', category: 'CPU', condition: '양호', route: '재사용' as string, material: '', weight: '0.3kg', value: '₩85,000' },
-          { id: 'P-001-2', name: 'RAM DDR4 32GB x4', category: 'RAM', condition: '양호', route: '재사용' as string, material: '', weight: '0.4kg', value: '₩120,000' },
-          { id: 'P-001-3', name: 'HDD Seagate Exos 18TB', category: 'Storage', condition: '폐기완료', route: '폐기' as string, material: '', weight: '0.8kg', value: '—' },
-          { id: 'P-001-4', name: '파워서플라이 750W', category: 'PSU', condition: '양호', route: '부품회수' as string, material: '', weight: '1.5kg', value: '₩35,000' },
-          { id: 'P-001-5', name: '메인보드', category: 'PCB', condition: '수명초과', route: '재활용' as string, material: 'Au 0.3g, Cu 45g', weight: '1.2kg', value: '₩28,000' },
-          { id: 'P-001-6', name: '섀시 (알루미늄)', category: 'Chassis', condition: '양호', route: '재활용' as string, material: 'Al 4.2kg', weight: '4.5kg', value: '₩12,000' },
-          { id: 'P-001-7', name: '쿨링팬 x3', category: 'Cooling', condition: '불량', route: '재활용' as string, material: 'Cu 0.2kg, Plastic', weight: '0.6kg', value: '₩2,000' },
-          { id: 'P-001-8', name: '케이블류', category: 'Cable', condition: '—', route: '재활용' as string, material: 'Cu 0.5kg', weight: '0.8kg', value: '₩3,000' },
-        ]},
-      { id: 'PRC-002', sourceId: 'DIS-003', assetId: 'AST-003', type: 'PC', model: 'HP EliteDesk 800', stage: '분해중' as string, startDate: '2026-03-23', endDate: '',  operator: '정분해',
-        parts: [
-          { id: 'P-002-1', name: 'CPU (i7-12700)', category: 'CPU', condition: '양호', route: '재사용' as string, material: '', weight: '0.1kg', value: '₩45,000' },
-          { id: 'P-002-2', name: 'RAM DDR4 16GB x2', category: 'RAM', condition: '양호', route: '재사용' as string, material: '', weight: '0.2kg', value: '₩40,000' },
-          { id: 'P-002-3', name: 'SSD Samsung 870 EVO 500GB', category: 'Storage', condition: '폐기완료', route: '폐기' as string, material: '', weight: '0.05kg', value: '—' },
-          { id: 'P-002-4', name: '메인보드', category: 'PCB', condition: '검수중', route: '' as string, material: 'Au 0.1g, Cu 25g', weight: '0.6kg', value: '' },
-          { id: 'P-002-5', name: '섀시 (스틸)', category: 'Chassis', condition: '양호', route: '재활용' as string, material: 'Fe 3.5kg', weight: '3.8kg', value: '₩5,000' },
-        ]},
-      { id: 'PRC-003', sourceId: 'DIS-005', assetId: 'AST-005', type: 'Notebook', model: 'Lenovo ThinkPad X1', stage: '분해대기' as string, startDate: '', endDate: '', operator: '',
-        parts: []},
-      { id: 'PRC-004', sourceId: '', assetId: 'AST-010', type: 'Server', model: 'HP ProLiant DL380', stage: '처분완료' as string, startDate: '2026-03-15', endDate: '2026-03-18', operator: '정분해',
-        parts: [
-          { id: 'P-004-1', name: 'CPU (Xeon Silver 4214) x2', category: 'CPU', condition: '양호', route: '재사용' as string, material: '', weight: '0.6kg', value: '₩110,000' },
-          { id: 'P-004-2', name: 'RAM DDR4 64GB x8', category: 'RAM', condition: '양호', route: '재사용' as string, material: '', weight: '0.8kg', value: '₩280,000' },
-          { id: 'P-004-3', name: 'SSD PM9A3 3.84TB x4', category: 'Storage', condition: '폐기완료', route: '폐기' as string, material: '', weight: '1.2kg', value: '—' },
-          { id: 'P-004-4', name: '파워서플라이 1200W x2', category: 'PSU', condition: '양호', route: '부품회수' as string, material: '', weight: '3.2kg', value: '₩90,000' },
-          { id: 'P-004-5', name: '메인보드', category: 'PCB', condition: '수명초과', route: '재활용' as string, material: 'Au 0.5g, Cu 60g, Ag 0.2g', weight: '1.8kg', value: '₩45,000' },
-          { id: 'P-004-6', name: '섀시 (알루미늄)', category: 'Chassis', condition: '양호', route: '재활용' as string, material: 'Al 6.8kg', weight: '7.2kg', value: '₩18,000' },
-          { id: 'P-004-7', name: 'RAID 컨트롤러', category: 'PCB', condition: '양호', route: '부품회수' as string, material: '', weight: '0.3kg', value: '₩55,000' },
-          { id: 'P-004-8', name: '네트워크카드 10GbE', category: 'PCB', condition: '양호', route: '부품회수' as string, material: '', weight: '0.2kg', value: '₩40,000' },
-          { id: 'P-004-9', name: '쿨링 시스템', category: 'Cooling', condition: '불량', route: '재활용' as string, material: 'Cu 0.8kg', weight: '1.0kg', value: '₩5,000' },
-          { id: 'P-004-10', name: '케이블/커넥터류', category: 'Cable', condition: '—', route: '재활용' as string, material: 'Cu 0.8kg', weight: '1.0kg', value: '₩4,000' },
-        ]},
-    ],
+    summary: {
+      inspectionWaiting: procIncomingAssets.filter(a => a.stage === '검수대기').length,
+      reusable: procIncomingAssets.filter(a => a.verdict === '재사용 가능').length,
+      disassembling: procIncomingAssets.filter(a => a.stage === '분해중').length,
+      completed: procIncomingAssets.filter(a => a.stage === '처분완료' || a.stage === '분해완료').length,
+      totalParts: procParts.length,
+      reuseRate: 28.5, recycleRate: 64.2, wasteRate: 7.3
+    },
     dispositionStats: {
       monthly: [
         { month: '2026-01', reuse: 32, recycle: 78, partsRecovery: 18, waste: 8 },
@@ -715,22 +762,50 @@ export default function App() {
     },
   };
 
-  const filteredProcessingAssets = assetProcessingData.assets.filter(a =>
+  const filteredProcessingAssets = procIncomingAssets.filter(a =>
     processingFilter === '전체' || a.stage === processingFilter
   );
 
-  const disposalSteps = ['입고 확인', '자산 검수', '폐기 방식 배정', '폐기 수행', '검증', '인증서 발급', '완료'];
+  const disposalSteps = ['배정대기', '작업중', '폐기 수행', '검증대기', '검증', '완료'];
 
   const disposalAssets = [
+    // DSP-2026-00123: K-ITAD 전자 (8건)
     { id: 'DIS-001', assetId: 'AST-001', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'Server', model: 'Dell PowerEdge R740', mediaType: 'HDD', mediaModel: 'Seagate Exos X18', serialNumber: 'WCT3E1234567', capacity: '18TB', mediaStatus: '정상', method: '소프트웨어 삭제', step: '완료', operator: '김보안', operatorCert: 'NIST 인증 기사', scheduledDate: '2026-03-22', startDate: '2026-03-22 09:00', endDate: '2026-03-22 11:30', duration: '2시간 30분', standard: 'NIST 800-88', software: 'Blancco Drive Eraser 7.2', algorithm: '3-pass', verification: 'Pass', delayed: false, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: 'CoD-2026-00456' },
     { id: 'DIS-002', assetId: 'AST-002', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'Server', model: 'Dell PowerEdge R740', mediaType: 'SSD', mediaModel: 'Samsung PM9A3', serialNumber: 'S5GFNA0T12345', capacity: '3.84TB', mediaStatus: '정상', method: '소프트웨어 삭제', step: '검증', operator: '김보안', operatorCert: 'NIST 인증 기사', scheduledDate: '2026-03-22', startDate: '2026-03-22 13:00', endDate: '', duration: '', standard: 'NIST 800-88', software: 'Blancco Drive Eraser 7.2', algorithm: 'Cryptographic Erase', verification: '', delayed: false, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: '' },
     { id: 'DIS-003', assetId: 'AST-003', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'PC', model: 'HP EliteDesk 800', mediaType: 'HDD', mediaModel: 'WD Blue 1TB', serialNumber: 'WD-WMC3T0123456', capacity: '1TB', mediaStatus: '배드섹터', method: '물리파괴', step: '폐기 수행', operator: '박파쇄', operatorCert: 'e-Stewards 인증', scheduledDate: '2026-03-23', startDate: '2026-03-23 10:00', endDate: '', duration: '', standard: 'DoD 5220.22-M', software: '', algorithm: '', verification: '', delayed: false, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: '' },
-    { id: 'DIS-004', assetId: 'AST-004', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'PC', model: 'HP EliteDesk 800', mediaType: 'SSD', mediaModel: 'Samsung 870 EVO', serialNumber: 'S6B2NJ0T98765', capacity: '500GB', mediaStatus: '정상', method: '소프트웨어 삭제', step: '폐기 방식 배정', operator: '', operatorCert: '', scheduledDate: '2026-03-24', startDate: '', endDate: '', duration: '', standard: 'NIST 800-88', software: '', algorithm: '', verification: '', delayed: false, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: '' },
-    { id: 'DIS-005', assetId: 'AST-005', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'Notebook', model: 'Lenovo ThinkPad X1', mediaType: 'NVMe', mediaModel: 'Samsung 980 PRO', serialNumber: 'S69ENF0T55555', capacity: '1TB', mediaStatus: '정상', method: '소프트웨어 삭제', step: '자산 검수', operator: '', operatorCert: '', scheduledDate: '2026-03-24', startDate: '', endDate: '', duration: '', standard: '', software: '', algorithm: '', verification: '', delayed: false, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: '' },
-    { id: 'DIS-006', assetId: 'AST-006', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'Notebook', model: 'Lenovo ThinkPad X1', mediaType: 'NVMe', mediaModel: 'WD Black SN850X', serialNumber: 'WD-SN850X77777', capacity: '2TB', mediaStatus: '정상', method: '디가우징', step: '입고 확인', operator: '', operatorCert: '', scheduledDate: '2026-03-25', startDate: '', endDate: '', duration: '', standard: '', software: '', algorithm: '', verification: '', delayed: true, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: '' },
+    { id: 'DIS-004', assetId: 'AST-004', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'PC', model: 'HP EliteDesk 800', mediaType: 'SSD', mediaModel: 'Samsung 870 EVO', serialNumber: 'S6B2NJ0T98765', capacity: '500GB', mediaStatus: '정상', method: '', step: '배정대기', operator: '', operatorCert: '', scheduledDate: '2026-03-24', startDate: '', endDate: '', duration: '', standard: '', software: '', algorithm: '', verification: '', delayed: false, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: '' },
+    { id: 'DIS-005', assetId: 'AST-005', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'Notebook', model: 'Lenovo ThinkPad X1', mediaType: 'NVMe', mediaModel: 'Samsung 980 PRO', serialNumber: 'S69ENF0T55555', capacity: '1TB', mediaStatus: '정상', method: '', step: '배정대기', operator: '', operatorCert: '', scheduledDate: '2026-03-24', startDate: '', endDate: '', duration: '', standard: '', software: '', algorithm: '', verification: '', delayed: false, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: '' },
+    { id: 'DIS-006', assetId: 'AST-006', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'Notebook', model: 'Lenovo ThinkPad X1', mediaType: 'NVMe', mediaModel: 'WD Black SN850X', serialNumber: 'WD-SN850X77777', capacity: '2TB', mediaStatus: '정상', method: '', step: '배정대기', operator: '', operatorCert: '', scheduledDate: '2026-03-25', startDate: '', endDate: '', duration: '', standard: '', software: '', algorithm: '', verification: '', delayed: true, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: '' },
     { id: 'DIS-007', assetId: 'AST-007', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'Server', model: 'NetApp AFF A400', mediaType: 'SSD', mediaModel: 'NetApp NSE', serialNumber: 'NA-NSE-0011223', capacity: '7.68TB', mediaStatus: '정상', method: '복합처리', step: '완료', operator: '이기사', operatorCert: 'R2 인증', scheduledDate: '2026-03-21', startDate: '2026-03-21 14:00', endDate: '2026-03-21 17:45', duration: '3시간 45분', standard: 'NIST 800-88', software: 'Blancco Drive Eraser 7.2', algorithm: '7-pass', verification: 'Pass', delayed: false, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: 'CoD-2026-00457' },
-    { id: 'DIS-008', assetId: 'AST-008', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'Server', model: 'NetApp AFF A400', mediaType: 'HDD', mediaModel: 'NetApp X448A', serialNumber: 'NA-X448A-99887', capacity: '8TB', mediaStatus: '인식불가', method: '물리파괴', step: '인증서 발급', operator: '박파쇄', operatorCert: 'e-Stewards 인증', scheduledDate: '2026-03-22', startDate: '2026-03-22 15:00', endDate: '2026-03-22 15:30', duration: '30분', standard: 'DoD 5220.22-M', software: '', algorithm: '', verification: 'Pass', delayed: false, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: '' },
+    { id: 'DIS-008', assetId: 'AST-008', emissionId: 'DSP-2026-00123', transportId: 'TRN-2026-00051', type: 'Server', model: 'NetApp AFF A400', mediaType: 'HDD', mediaModel: 'NetApp X448A', serialNumber: 'NA-X448A-99887', capacity: '8TB', mediaStatus: '인식불가', method: '물리파괴', step: '검증대기', operator: '박파쇄', operatorCert: 'e-Stewards 인증', scheduledDate: '2026-03-22', startDate: '2026-03-22 15:00', endDate: '2026-03-22 15:30', duration: '30분', standard: 'DoD 5220.22-M', software: '', algorithm: '', verification: '', delayed: false, company: 'K-ITAD 전자', department: 'IT인프라팀', securityGrade: '기밀', certId: '' },
+    // DSP-2026-00124: SKT IT인프라팀 (4건)
+    { id: 'DIS-009', assetId: 'AST-009', emissionId: 'DSP-2026-00124', transportId: 'TRN-2026-00052', type: 'PC', model: 'Dell OptiPlex 7090', mediaType: 'SSD', mediaModel: 'Samsung 870 EVO 500GB', serialNumber: 'S6B2NJ0T11111', capacity: '500GB', mediaStatus: '정상', method: '소프트웨어 삭제', step: '작업중', operator: '김보안', operatorCert: 'NIST 인증 기사', scheduledDate: '2026-03-24', startDate: '2026-03-24 09:00', endDate: '', duration: '', standard: 'NIST 800-88', software: 'Blancco Drive Eraser 7.2', algorithm: '3-pass', verification: '', delayed: false, company: 'SKT', department: 'IT인프라팀', securityGrade: '중요', certId: '' },
+    { id: 'DIS-010', assetId: 'AST-010', emissionId: 'DSP-2026-00124', transportId: 'TRN-2026-00052', type: 'PC', model: 'Dell OptiPlex 7090', mediaType: 'SSD', mediaModel: 'Samsung 870 EVO 500GB', serialNumber: 'S6B2NJ0T22222', capacity: '500GB', mediaStatus: '정상', method: '소프트웨어 삭제', step: '작업중', operator: '김보안', operatorCert: 'NIST 인증 기사', scheduledDate: '2026-03-24', startDate: '2026-03-24 09:30', endDate: '', duration: '', standard: 'NIST 800-88', software: 'Blancco Drive Eraser 7.2', algorithm: '3-pass', verification: '', delayed: false, company: 'SKT', department: 'IT인프라팀', securityGrade: '중요', certId: '' },
+    { id: 'DIS-011', assetId: 'AST-011', emissionId: 'DSP-2026-00124', transportId: 'TRN-2026-00052', type: 'Notebook', model: 'Lenovo ThinkPad T14', mediaType: 'NVMe', mediaModel: 'WD SN770 1TB', serialNumber: 'WD-SN770-33333', capacity: '1TB', mediaStatus: '정상', method: '', step: '배정대기', operator: '', operatorCert: '', scheduledDate: '2026-03-25', startDate: '', endDate: '', duration: '', standard: '', software: '', algorithm: '', verification: '', delayed: false, company: 'SKT', department: 'IT인프라팀', securityGrade: '중요', certId: '' },
+    { id: 'DIS-012', assetId: 'AST-012', emissionId: 'DSP-2026-00124', transportId: 'TRN-2026-00052', type: 'Notebook', model: 'Lenovo ThinkPad T14', mediaType: 'NVMe', mediaModel: 'WD SN770 1TB', serialNumber: 'WD-SN770-44444', capacity: '1TB', mediaStatus: '정상', method: '', step: '배정대기', operator: '', operatorCert: '', scheduledDate: '2026-03-25', startDate: '', endDate: '', duration: '', standard: '', software: '', algorithm: '', verification: '', delayed: false, company: 'SKT', department: 'IT인프라팀', securityGrade: '중요', certId: '' },
+    // DSP-2026-00120: 현대모비스 (3건) - 전체 완료
+    { id: 'DIS-013', assetId: 'AST-013', emissionId: 'DSP-2026-00120', transportId: 'TRN-2026-00048', type: 'Server', model: 'HP ProLiant DL380', mediaType: 'HDD', mediaModel: 'Seagate Exos 16TB', serialNumber: 'WCT5E7777777', capacity: '16TB', mediaStatus: '정상', method: '소프트웨어 삭제', step: '완료', operator: '이기사', operatorCert: 'R2 인증', scheduledDate: '2026-03-18', startDate: '2026-03-18 09:00', endDate: '2026-03-18 12:00', duration: '3시간', standard: 'NIST 800-88', software: 'Blancco Drive Eraser 7.2', algorithm: '3-pass', verification: 'Pass', delayed: false, company: '현대모비스', department: 'DX실', securityGrade: '극비', certId: 'CoD-2026-00440' },
+    { id: 'DIS-014', assetId: 'AST-014', emissionId: 'DSP-2026-00120', transportId: 'TRN-2026-00048', type: 'Server', model: 'HP ProLiant DL380', mediaType: 'HDD', mediaModel: 'Seagate Exos 16TB', serialNumber: 'WCT5E8888888', capacity: '16TB', mediaStatus: '정상', method: '소프트웨어 삭제', step: '완료', operator: '이기사', operatorCert: 'R2 인증', scheduledDate: '2026-03-18', startDate: '2026-03-18 13:00', endDate: '2026-03-18 16:00', duration: '3시간', standard: 'NIST 800-88', software: 'Blancco Drive Eraser 7.2', algorithm: '3-pass', verification: 'Pass', delayed: false, company: '현대모비스', department: 'DX실', securityGrade: '극비', certId: 'CoD-2026-00440' },
+    { id: 'DIS-015', assetId: 'AST-015', emissionId: 'DSP-2026-00120', transportId: 'TRN-2026-00048', type: 'PC', model: 'Dell OptiPlex 5090', mediaType: 'SSD', mediaModel: 'Samsung 870 EVO', serialNumber: 'S6B2NJ0T55555', capacity: '500GB', mediaStatus: '인식불가', method: '물리파괴', step: '완료', operator: '박파쇄', operatorCert: 'e-Stewards 인증', scheduledDate: '2026-03-19', startDate: '2026-03-19 10:00', endDate: '2026-03-19 10:15', duration: '15분', standard: 'DoD 5220.22-M', software: '', algorithm: '', verification: 'Pass', delayed: false, company: '현대모비스', department: 'DX실', securityGrade: '극비', certId: 'CoD-2026-00440' },
   ];
+
+  // 배출요청건별 그룹핑 데이터
+  const disposalEmissionGroups = React.useMemo(() => {
+    const groups: Record<string, { emissionId: string; company: string; department: string; securityGrade: string; totalCount: number; completedCount: number; inProgressCount: number; waitingCount: number; assets: typeof disposalAssets }> = {};
+    disposalAssets.forEach(a => {
+      if (!groups[a.emissionId]) {
+        groups[a.emissionId] = { emissionId: a.emissionId, company: a.company, department: a.department, securityGrade: a.securityGrade, totalCount: 0, completedCount: 0, inProgressCount: 0, waitingCount: 0, assets: [] };
+      }
+      groups[a.emissionId].totalCount++;
+      if (a.step === '완료') groups[a.emissionId].completedCount++;
+      else if (a.step === '작업중' || a.step === '폐기 수행') groups[a.emissionId].inProgressCount++;
+      else groups[a.emissionId].waitingCount++;
+      groups[a.emissionId].assets.push(a);
+    });
+    return Object.values(groups);
+  }, []);
+
+  const selectedEmissionAssets = selectedEmissionForDisposal ? disposalAssets.filter(a => a.emissionId === selectedEmissionForDisposal) : [];
 
   const disposalCerts = [
     { id: 'CoD-2026-00456', emissionId: 'DSP-2026-00123', assetCount: 1, method: '소프트웨어 삭제', standard: 'NIST 800-88', issueDate: '2026-03-22', status: '유효', company: 'K-ITAD 전자', processor: '㈜그린ITAD', processorCert: 'R2 / e-Stewards' },
@@ -3240,16 +3315,16 @@ export default function App() {
                 <ShieldCheck className="w-8 h-8 text-rose-600" />
                 데이터 폐기
               </h1>
-              <p className="text-slate-500 mt-1">배출된 IT자산의 데이터가 어떤 방식으로, 언제, 누구에 의해 파괴되었는지 전 과정을 투명하게 보여줍니다.</p>
+              <p className="text-slate-500 mt-1">배출요청건별 데이터 폐기 작업을 수행하고 결과를 등록합니다.</p>
             </div>
 
             {/* ===== 상단 요약 카드 4개 ===== */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: '총 폐기 처리 건수', value: `${disposalTotalCount + 148}`, sub: `금월 ${disposalTotalCount}건 · 전월 대비 +12%`, icon: Database, color: 'indigo' },
-                { label: '폐기 완료율', value: `${disposalCompletionRate}%`, sub: `요청 ${disposalTotalCount}건 중 ${disposalCompletedCount}건 완료`, icon: CheckCircle2, color: 'emerald', gauge: disposalCompletionRate },
-                { label: '인증서 발급 건수', value: `${disposalCerts.length}`, sub: '누적 CoD 발급', icon: FileBadge, color: 'blue' },
-                { label: '처리 대기 건수', value: `${disposalPendingCount}`, sub: disposalPendingCount === 0 ? '전체 완료' : `${disposalAssets.filter(a => a.delayed).length}건 지연`, icon: Clock, color: disposalPendingCount === 0 ? 'emerald' : disposalAssets.filter(a => a.delayed).length > 0 ? 'rose' : 'amber' },
+                { label: '총 폐기 대상', value: `${disposalTotalCount}`, sub: `${disposalEmissionGroups.length}건의 배출요청`, icon: Database, color: 'indigo' },
+                { label: '폐기 완료율', value: `${disposalCompletionRate}%`, sub: `${disposalCompletedCount}/${disposalTotalCount}건 완료`, icon: CheckCircle2, color: 'emerald', gauge: disposalCompletionRate },
+                { label: '작업중', value: `${disposalAssets.filter(a => a.step === '작업중' || a.step === '폐기 수행').length}`, sub: '현재 진행중인 작업', icon: Clock, color: 'amber' },
+                { label: '인증서 발급', value: `${disposalCerts.length}`, sub: '누적 CoD 발급', icon: FileBadge, color: 'blue' },
               ].map((card, i) => (
                 <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-3 mb-2">
@@ -3258,8 +3333,7 @@ export default function App() {
                       card.color === 'indigo' ? "bg-indigo-50 text-indigo-600" :
                       card.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
                       card.color === 'blue' ? "bg-blue-50 text-blue-600" :
-                      card.color === 'amber' ? "bg-amber-50 text-amber-600" :
-                      "bg-rose-50 text-rose-600"
+                      "bg-amber-50 text-amber-600"
                     )}>
                       <card.icon className="w-5 h-5" />
                     </div>
@@ -3271,7 +3345,7 @@ export default function App() {
                       <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${card.gauge}%` }} />
                     </div>
                   )}
-                  <p className={cn("text-xs font-bold mt-1", card.color === 'rose' ? "text-rose-500" : "text-slate-400")}>{card.sub}</p>
+                  <p className="text-xs font-bold mt-1 text-slate-400">{card.sub}</p>
                 </div>
               ))}
             </div>
@@ -3280,348 +3354,508 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="flex border-b border-slate-200">
                 {[
-                  { key: 'progress' as const, label: '폐기 진행 현황' },
-                  { key: 'detail' as const, label: '폐기 상세 리포트' },
-                  { key: 'certificates' as const, label: '인증서 관리' },
-                  { key: 'stats' as const, label: '통계 · 분석' },
+                  { key: 'status' as const, label: '작업 현황', icon: ClipboardList },
+                  { key: 'work' as const, label: '작업 수행 / 결과 등록', icon: PenTool },
+                  { key: 'verify' as const, label: '검증 / 인증서', icon: ShieldCheck },
+                  { key: 'stats' as const, label: '통계 · 분석', icon: BarChart3 },
                 ].map(tab => (
                   <button
                     key={tab.key}
-                    onClick={() => { setDisposalTab(tab.key); if (tab.key !== 'detail') setSelectedDisposalAsset(null); }}
+                    onClick={() => setDisposalTab(tab.key)}
                     className={cn(
-                      "flex-1 py-4 text-sm font-bold transition-all border-b-2",
-                      disposalTab === tab.key ? "text-indigo-600 border-indigo-600 bg-indigo-50/50" : "text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-50"
+                      "flex-1 py-4 text-sm font-bold transition-all border-b-2 flex items-center justify-center gap-2",
+                      disposalTab === tab.key ? "text-rose-600 border-rose-600 bg-rose-50/50" : "text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-50"
                     )}
                   >
+                    <tab.icon className="w-4 h-4" />
                     {tab.label}
                   </button>
                 ))}
               </div>
 
               <div className="p-6">
-                {/* ===== 탭①: 폐기 진행 현황 ===== */}
-                {disposalTab === 'progress' && (
+                {/* ===== 탭A: 작업 현황 ===== */}
+                {disposalTab === 'status' && (
                   <div className="space-y-6">
-                    {/* 프로세스 타임라인 (가로 스텝) */}
-                    <div className="flex items-center gap-1 overflow-x-auto pb-2">
-                      <button
-                        onClick={() => setDisposalStepFilter('전체')}
-                        className={cn(
-                          "px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all",
-                          disposalStepFilter === '전체' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                        )}
-                      >전체</button>
-                      {disposalSteps.map((step, i) => {
-                        const count = disposalAssets.filter(a => a.step === step).length;
-                        return (
-                          <React.Fragment key={step}>
-                            <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
-                            <button
-                              onClick={() => setDisposalStepFilter(step)}
-                              className={cn(
-                                "px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2",
-                                disposalStepFilter === step ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                              )}
-                            >
-                              {step}
-                              {count > 0 && <span className={cn("px-1.5 py-0.5 rounded-md text-[10px]", disposalStepFilter === step ? "bg-white/20" : "bg-slate-200")}>{count}</span>}
-                            </button>
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-
-                    {/* 필터바 */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="relative flex-1 min-w-[200px]">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="배출신청번호 / 자산번호 검색"
-                          value={disposalSearch}
-                          onChange={(e) => setDisposalSearch(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
-                        />
-                      </div>
-                      <select
-                        value={disposalMethodFilter}
-                        onChange={(e) => setDisposalMethodFilter(e.target.value)}
-                        className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none"
-                      >
-                        <option value="전체">폐기 방식: 전체</option>
-                        <option>소프트웨어 삭제</option>
-                        <option>디가우징</option>
-                        <option>물리파괴</option>
-                        <option>복합처리</option>
-                      </select>
-                      <button
-                        onClick={() => setDisposalDelayOnly(!disposalDelayOnly)}
-                        className={cn(
-                          "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all",
-                          disposalDelayOnly ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-white border-slate-200 text-slate-500"
-                        )}
-                      >
-                        {disposalDelayOnly ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
-                        지연 건만
-                      </button>
-                    </div>
-
-                    {/* 자산별 폐기 목록 테이블 */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                          <tr>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산번호</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산 유형</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">모델명</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">저장매체</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">용량</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">폐기 방식</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">현재 단계</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">담당자</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">처리 예정일</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">인증서</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {disposalAssets
-                            .filter(a => disposalStepFilter === '전체' || a.step === disposalStepFilter)
-                            .filter(a => disposalMethodFilter === '전체' || a.method === disposalMethodFilter)
-                            .filter(a => !disposalDelayOnly || a.delayed)
-                            .filter(a => {
-                              if (!disposalSearch) return true;
-                              const q = disposalSearch.toLowerCase();
-                              return a.assetId.toLowerCase().includes(q) || a.emissionId.toLowerCase().includes(q) || a.id.toLowerCase().includes(q);
-                            })
-                            .map(asset => (
-                            <tr
-                              key={asset.id}
-                              onClick={() => { setSelectedDisposalAsset(asset.id); setDisposalTab('detail'); }}
-                              className="cursor-pointer hover:bg-indigo-50/50 transition-colors"
-                            >
-                              <td className="px-4 py-3 text-sm font-bold text-slate-900">{asset.assetId}</td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{asset.type}</td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{asset.model}</td>
-                              <td className="px-4 py-3 text-sm">
-                                <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-bold",
-                                  asset.mediaType === 'HDD' ? "bg-blue-100 text-blue-700" :
-                                  asset.mediaType === 'SSD' ? "bg-purple-100 text-purple-700" :
-                                  "bg-amber-100 text-amber-700"
-                                )}>{asset.mediaType}</span>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{asset.capacity}</td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{asset.method}</td>
-                              <td className="px-4 py-3">
-                                <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                                  asset.step === '완료' ? "bg-emerald-100 text-emerald-700" :
-                                  asset.step === '폐기 수행' || asset.step === '검증' ? "bg-blue-100 text-blue-700" :
-                                  "bg-slate-100 text-slate-600"
-                                )}>{asset.step}</span>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{asset.operator || '—'}</td>
-                              <td className={cn("px-4 py-3 text-sm font-bold", asset.delayed ? "text-rose-500" : "text-slate-600")}>{asset.scheduledDate}</td>
-                              <td className="px-4 py-3">
-                                {asset.certId ? (
-                                  <button onClick={(e) => { e.stopPropagation(); }} className="text-indigo-600 hover:underline text-xs font-bold flex items-center gap-1">
-                                    <Download className="w-3 h-3" /> PDF
-                                  </button>
-                                ) : <span className="text-xs text-slate-400">—</span>}
-                              </td>
+                    {/* 배출요청건 목록 */}
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-700 mb-3">배출요청건 목록</h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">신청번호</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출처</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부서</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">보안등급</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산수</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">진행률</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">작업</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {disposalEmissionGroups.map(g => {
+                              const rate = Math.round((g.completedCount / g.totalCount) * 100);
+                              const isSelected = selectedEmissionForDisposal === g.emissionId;
+                              return (
+                                <tr key={g.emissionId}
+                                  onClick={() => setSelectedEmissionForDisposal(isSelected ? null : g.emissionId)}
+                                  className={cn("cursor-pointer transition-colors", isSelected ? "bg-rose-50" : "hover:bg-slate-50")}
+                                >
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{g.emissionId}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-700 font-medium">{g.company}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{g.department}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-bold",
+                                      g.securityGrade === '극비' ? "bg-rose-100 text-rose-700" :
+                                      g.securityGrade === '기밀' ? "bg-purple-100 text-purple-700" :
+                                      g.securityGrade === '중요' ? "bg-amber-100 text-amber-700" :
+                                      "bg-slate-100 text-slate-600"
+                                    )}>{g.securityGrade}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{g.totalCount}건</td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${rate}%` }} />
+                                      </div>
+                                      <span className="text-xs font-bold text-slate-600">{rate}%</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                      rate === 100 ? "bg-emerald-100 text-emerald-700" :
+                                      g.inProgressCount > 0 ? "bg-blue-100 text-blue-700" :
+                                      "bg-slate-100 text-slate-600"
+                                    )}>{rate === 100 ? '완료' : g.inProgressCount > 0 ? '작업중' : '대기'}</span>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setSelectedEmissionForDisposal(g.emissionId); setDisposalTab('work'); setDisposalCheckedAssets([]); }}
+                                      className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-100 transition-all"
+                                    >
+                                      결과 등록
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                )}
 
-                {/* ===== 탭②: 폐기 상세 리포트 ===== */}
-                {disposalTab === 'detail' && (
-                  <div>
-                    {selectedDisposalData ? (
-                      <div className="space-y-6">
-                        <button onClick={() => { setDisposalTab('progress'); setSelectedDisposalAsset(null); }} className="text-sm text-slate-500 hover:text-slate-700 font-bold flex items-center gap-1">
-                          <ArrowLeft className="w-4 h-4" /> 목록으로 돌아가기
-                        </button>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          {/* 기본 정보 */}
-                          <div className="space-y-4">
-                            <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">기본 정보</h4>
-                            <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-                              {[
-                                { label: '배출신청번호', value: selectedDisposalData.emissionId, link: true },
-                                { label: '운송번호', value: selectedDisposalData.transportId, link: true },
-                                { label: '의뢰 기업 / 부서', value: `${selectedDisposalData.company} / ${selectedDisposalData.department}` },
-                                { label: '보안등급', value: selectedDisposalData.securityGrade, badge: true },
-                              ].map((item, i) => (
-                                <div key={i} className="flex justify-between text-sm">
-                                  <span className="text-slate-500">{item.label}</span>
-                                  {item.badge ? (
-                                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md text-xs font-bold">{item.value}</span>
-                                  ) : item.link ? (
-                                    <span className="text-indigo-600 font-bold cursor-pointer hover:underline">{item.value}</span>
-                                  ) : (
-                                    <span className="font-bold text-slate-900">{item.value}</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* 저장매체 정보 */}
-                            <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">저장매체 정보</h4>
-                            <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-                              {[
-                                { label: '매체 유형', value: selectedDisposalData.mediaType },
-                                { label: '제조사 / 모델', value: selectedDisposalData.mediaModel },
-                                { label: '시리얼 넘버', value: selectedDisposalData.serialNumber, mono: true },
-                                { label: '용량', value: selectedDisposalData.capacity },
-                                { label: '매체 상태', value: selectedDisposalData.mediaStatus },
-                              ].map((item, i) => (
-                                <div key={i} className="flex justify-between text-sm">
-                                  <span className="text-slate-500">{item.label}</span>
-                                  <span className={cn("font-bold", item.mono ? "font-mono text-slate-700" :
-                                    item.value === '정상' ? "text-emerald-600" : item.value === '배드섹터' ? "text-amber-600" : item.value === '인식불가' ? "text-rose-600" : "text-slate-900"
-                                  )}>{item.value}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* 폐기 수행 기록 */}
-                          <div className="space-y-4">
-                            <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">폐기 수행 기록</h4>
-                            <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-                              {[
-                                { label: '폐기 방식', value: selectedDisposalData.method },
-                                { label: '적용 기준', value: selectedDisposalData.standard || '—' },
-                                { label: '삭제 소프트웨어', value: selectedDisposalData.software || '—' },
-                                { label: '삭제 알고리즘', value: selectedDisposalData.algorithm || '—' },
-                                { label: '처리 시작 일시', value: selectedDisposalData.startDate || '—' },
-                                { label: '처리 완료 일시', value: selectedDisposalData.endDate || '—' },
-                                { label: '처리 소요시간', value: selectedDisposalData.duration || '—' },
-                                { label: '담당 기사', value: selectedDisposalData.operator ? `${selectedDisposalData.operator} (${selectedDisposalData.operatorCert})` : '—' },
-                                { label: '검증 결과', value: selectedDisposalData.verification || '—', verify: true },
-                              ].map((item, i) => (
-                                <div key={i} className="flex justify-between text-sm">
-                                  <span className="text-slate-500">{item.label}</span>
-                                  {item.verify ? (
-                                    <span className={cn("font-bold", item.value === 'Pass' ? "text-emerald-600" : item.value === 'Fail' ? "text-rose-600" : "text-slate-400")}>
-                                      {item.value === 'Pass' ? '✅ Pass' : item.value === 'Fail' ? '❌ Fail' : item.value}
-                                    </span>
-                                  ) : (
-                                    <span className="font-bold text-slate-900">{item.value}</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* 증빙 자료 */}
-                            <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">증빙 자료</h4>
-                            <div className="grid grid-cols-2 gap-3">
-                              {[
-                                { label: '폐기 전 사진', icon: Image, desc: '매체 식별 사진' },
-                                { label: '폐기 후 사진', icon: Image, desc: '파쇄 결과물 사진' },
-                                { label: '삭제 로그', icon: FileText, desc: '로그파일 첨부' },
-                                { label: '영상 기록', icon: Video, desc: '물리파괴 영상' },
-                              ].map((item, i) => (
-                                <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-200 hover:border-indigo-300 transition-all cursor-pointer group">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <item.icon className="w-4 h-4 text-slate-400 group-hover:text-indigo-500" />
-                                    <span className="text-sm font-bold text-slate-700">{item.label}</span>
-                                  </div>
-                                  <p className="text-xs text-slate-400">{item.desc}</p>
-                                </div>
-                              ))}
-                            </div>
+                    {/* 선택된 요청건의 자산 목록 */}
+                    {selectedEmissionForDisposal && (
+                      <div className="border-t border-slate-200 pt-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-bold text-slate-700">
+                            {selectedEmissionForDisposal} 자산 목록
+                            <span className="ml-2 text-slate-400 font-normal">({selectedEmissionAssets.length}건)</span>
+                          </h4>
+                          <div className="flex items-center gap-2">
+                            {disposalSteps.map(step => {
+                              const count = selectedEmissionAssets.filter(a => a.step === step).length;
+                              return count > 0 ? (
+                                <span key={step} className={cn("px-2 py-1 rounded-md text-[10px] font-bold",
+                                  step === '완료' ? "bg-emerald-100 text-emerald-700" :
+                                  step === '작업중' || step === '폐기 수행' ? "bg-blue-100 text-blue-700" :
+                                  step === '검증대기' || step === '검증' ? "bg-amber-100 text-amber-700" :
+                                  "bg-slate-100 text-slate-600"
+                                )}>{step} {count}</span>
+                              ) : null;
+                            })}
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                        <Clipboard className="w-12 h-12 mb-4 text-slate-300" />
-                        <p className="text-sm font-bold">폐기 진행 현황 탭에서 자산을 선택하면</p>
-                        <p className="text-sm">상세 리포트가 표시됩니다.</p>
-                        <button onClick={() => setDisposalTab('progress')} className="mt-4 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-sm font-bold hover:bg-indigo-100 transition-all">
-                          폐기 진행 현황으로 이동
-                        </button>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산번호</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">유형</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">모델명</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">매체</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">용량</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">폐기 방식</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">단계</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">담당자</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {selectedEmissionAssets.map(asset => (
+                                <tr key={asset.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{asset.assetId}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.type}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.model}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-bold",
+                                      asset.mediaType === 'HDD' ? "bg-blue-100 text-blue-700" :
+                                      asset.mediaType === 'SSD' ? "bg-purple-100 text-purple-700" :
+                                      "bg-amber-100 text-amber-700"
+                                    )}>{asset.mediaType}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.capacity}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.method || '—'}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                      asset.step === '완료' ? "bg-emerald-100 text-emerald-700" :
+                                      asset.step === '작업중' || asset.step === '폐기 수행' ? "bg-blue-100 text-blue-700" :
+                                      asset.step === '검증대기' || asset.step === '검증' ? "bg-amber-100 text-amber-700" :
+                                      "bg-slate-100 text-slate-600"
+                                    )}>{asset.step}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.operator || '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* ===== 탭③: 인증서 관리 ===== */}
-                {disposalTab === 'certificates' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-slate-500">총 <span className="font-bold text-slate-900">{disposalCerts.length}</span>건</p>
-                      <button
-                        onClick={() => {}}
-                        disabled={certChecked.length === 0}
-                        className={cn(
-                          "px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all",
-                          certChecked.length > 0 ? "bg-indigo-600 text-white hover:bg-indigo-700" : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                {/* ===== 탭B: 작업 수행 / 결과 등록 ===== */}
+                {disposalTab === 'work' && (
+                  <div className="space-y-6">
+                    {!selectedEmissionForDisposal ? (
+                      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                        <Clipboard className="w-12 h-12 mb-4 text-slate-300" />
+                        <p className="text-sm font-bold">작업 현황 탭에서 배출요청건을 선택하고</p>
+                        <p className="text-sm">&lsquo;결과 등록&rsquo; 버튼을 클릭해 주세요.</p>
+                        <button onClick={() => setDisposalTab('status')} className="mt-4 px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all">
+                          작업 현황으로 이동
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {/* 배출요청건 요약 */}
+                        <div className="bg-slate-50 rounded-xl p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <span className="text-sm font-bold text-slate-900">{selectedEmissionForDisposal}</span>
+                            <span className="text-sm text-slate-500">{selectedEmissionAssets[0]?.company} / {selectedEmissionAssets[0]?.department}</span>
+                            <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-bold",
+                              selectedEmissionAssets[0]?.securityGrade === '극비' ? "bg-rose-100 text-rose-700" :
+                              selectedEmissionAssets[0]?.securityGrade === '기밀' ? "bg-purple-100 text-purple-700" :
+                              "bg-amber-100 text-amber-700"
+                            )}>{selectedEmissionAssets[0]?.securityGrade}</span>
+                          </div>
+                          <button onClick={() => { setSelectedEmissionForDisposal(null); setDisposalTab('status'); }} className="text-xs text-slate-500 hover:text-slate-700 font-bold flex items-center gap-1">
+                            <ArrowLeft className="w-3 h-3" /> 목록으로
+                          </button>
+                        </div>
+
+                        {/* 자산 선택 테이블 (체크박스) */}
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-bold text-slate-700">폐기 대상 자산 선택</h4>
+                            <span className="text-xs text-slate-400">{disposalCheckedAssets.length}건 선택됨</span>
+                          </div>
+                          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                            <table className="w-full text-left">
+                              <thead className="bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                  <th className="px-4 py-3 w-10">
+                                    <input
+                                      type="checkbox"
+                                      checked={disposalCheckedAssets.length === selectedEmissionAssets.filter(a => a.step !== '완료').length && selectedEmissionAssets.filter(a => a.step !== '완료').length > 0}
+                                      onChange={(e) => setDisposalCheckedAssets(e.target.checked ? selectedEmissionAssets.filter(a => a.step !== '완료').map(a => a.id) : [])}
+                                      className="rounded border-slate-300"
+                                    />
+                                  </th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산번호</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">유형 / 모델</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">매체</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">S/N</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">현재 단계</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {selectedEmissionAssets.map(asset => (
+                                  <tr key={asset.id} className={cn("transition-colors",
+                                    asset.step === '완료' ? "bg-emerald-50/30 opacity-50" :
+                                    disposalCheckedAssets.includes(asset.id) ? "bg-rose-50" : "hover:bg-slate-50"
+                                  )}>
+                                    <td className="px-4 py-3">
+                                      <input
+                                        type="checkbox"
+                                        disabled={asset.step === '완료'}
+                                        checked={disposalCheckedAssets.includes(asset.id)}
+                                        onChange={(e) => setDisposalCheckedAssets(e.target.checked ? [...disposalCheckedAssets, asset.id] : disposalCheckedAssets.filter(id => id !== asset.id))}
+                                        className="rounded border-slate-300"
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3 text-sm font-bold text-slate-900">{asset.assetId}</td>
+                                    <td className="px-4 py-3 text-sm text-slate-600">{asset.type} / {asset.model}</td>
+                                    <td className="px-4 py-3">
+                                      <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-bold",
+                                        asset.mediaType === 'HDD' ? "bg-blue-100 text-blue-700" :
+                                        asset.mediaType === 'SSD' ? "bg-purple-100 text-purple-700" :
+                                        "bg-amber-100 text-amber-700"
+                                      )}>{asset.mediaType} {asset.capacity}</span>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm font-mono text-slate-500">{asset.serialNumber}</td>
+                                    <td className="px-4 py-3">
+                                      <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                        asset.step === '완료' ? "bg-emerald-100 text-emerald-700" :
+                                        asset.step === '작업중' ? "bg-blue-100 text-blue-700" :
+                                        "bg-slate-100 text-slate-600"
+                                      )}>{asset.step}</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* 일괄 결과 등록 폼 */}
+                        {disposalCheckedAssets.length > 0 && (
+                          <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-6 space-y-5">
+                            <div className="flex items-center gap-2">
+                              <PenTool className="w-5 h-5 text-rose-600" />
+                              <h4 className="text-lg font-bold text-slate-900">일괄 결과 등록</h4>
+                              <span className="px-2 py-0.5 bg-rose-100 text-rose-600 rounded-md text-xs font-bold">{disposalCheckedAssets.length}건 선택됨</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">삭제 방법</label>
+                                <select
+                                  value={disposalWorkForm.method}
+                                  onChange={(e) => setDisposalWorkForm({...disposalWorkForm, method: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500"
+                                >
+                                  <option>소프트웨어 삭제</option>
+                                  <option>디가우징</option>
+                                  <option>물리파괴</option>
+                                  <option>복합처리</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">삭제 등급</label>
+                                <select
+                                  value={disposalWorkForm.grade}
+                                  onChange={(e) => setDisposalWorkForm({...disposalWorkForm, grade: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500"
+                                >
+                                  <option>NIST 800-88</option>
+                                  <option>DoD 5220.22-M</option>
+                                  <option>Gutmann 35-pass</option>
+                                  <option>자체기준</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">사용 도구/장비</label>
+                                <select
+                                  value={disposalWorkForm.software}
+                                  onChange={(e) => setDisposalWorkForm({...disposalWorkForm, software: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500"
+                                >
+                                  <option>Blancco Drive Eraser 7.2</option>
+                                  <option>Certus Erasure</option>
+                                  <option>디가우저 HD-3WXL</option>
+                                  <option>파쇄기 SSD-2000</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">작업자</label>
+                                <select
+                                  value={disposalWorkForm.operator}
+                                  onChange={(e) => setDisposalWorkForm({...disposalWorkForm, operator: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500"
+                                >
+                                  <option>김보안</option>
+                                  <option>박파쇄</option>
+                                  <option>이기사</option>
+                                  <option>정분해</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">처리 결과</label>
+                                <select
+                                  value={disposalWorkForm.result}
+                                  onChange={(e) => setDisposalWorkForm({...disposalWorkForm, result: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500"
+                                >
+                                  <option>성공</option>
+                                  <option>실패</option>
+                                  <option>부분삭제</option>
+                                </select>
+                              </div>
+                              {disposalWorkForm.result !== '성공' && (
+                                <div className="space-y-1.5">
+                                  <label className="text-xs font-bold text-slate-700">실패 사유</label>
+                                  <input
+                                    type="text"
+                                    placeholder="사유를 입력하세요"
+                                    value={disposalWorkForm.failReason}
+                                    onChange={(e) => setDisposalWorkForm({...disposalWorkForm, failReason: e.target.value})}
+                                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500"
+                                  />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-3 pt-2">
+                              <button
+                                onClick={() => alert(`${disposalCheckedAssets.length}건의 폐기 결과가 일괄 등록되었습니다.`)}
+                                className="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20 flex items-center gap-2"
+                              >
+                                <CheckCircle2 className="w-5 h-5" />
+                                {disposalCheckedAssets.length}건 일괄 등록
+                              </button>
+                              <button
+                                onClick={() => setDisposalCheckedAssets([])}
+                                className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-all"
+                              >
+                                선택 해제
+                              </button>
+                            </div>
+                          </div>
                         )}
-                      >
-                        <Download className="w-4 h-4" />
-                        일괄 다운로드 ({certChecked.length})
-                      </button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ===== 탭C: 검증 / 인증서 ===== */}
+                {disposalTab === 'verify' && (
+                  <div className="space-y-6">
+                    {/* 검증 대기 목록 */}
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-700 mb-3">검증 대기 건</h4>
+                      {(() => {
+                        const verifyAssets = disposalAssets.filter(a => a.step === '검증대기' || a.step === '검증');
+                        return verifyAssets.length > 0 ? (
+                          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                            <table className="w-full text-left">
+                              <thead className="bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산번호</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출처</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">유형 / 모델</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">매체</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">폐기 방식</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">작업자</th>
+                                  <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">검증</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {verifyAssets.map(asset => (
+                                  <tr key={asset.id} className="hover:bg-slate-50">
+                                    <td className="px-4 py-3 text-sm font-bold text-slate-900">{asset.assetId}</td>
+                                    <td className="px-4 py-3 text-sm text-slate-600">{asset.company}</td>
+                                    <td className="px-4 py-3 text-sm text-slate-600">{asset.type} / {asset.model}</td>
+                                    <td className="px-4 py-3">
+                                      <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-bold",
+                                        asset.mediaType === 'HDD' ? "bg-blue-100 text-blue-700" :
+                                        asset.mediaType === 'SSD' ? "bg-purple-100 text-purple-700" :
+                                        "bg-amber-100 text-amber-700"
+                                      )}>{asset.mediaType}</span>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-slate-600">{asset.method}</td>
+                                    <td className="px-4 py-3 text-sm text-slate-600">{asset.operator}</td>
+                                    <td className="px-4 py-3">
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => alert(`${asset.assetId} 검증 완료 (Pass)`)}
+                                          className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-all"
+                                        >
+                                          Pass
+                                        </button>
+                                        <button
+                                          onClick={() => alert(`${asset.assetId} 검증 실패 (Fail)`)}
+                                          className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-100 transition-all"
+                                        >
+                                          Fail
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-xl">
+                            <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-400" />
+                            <p className="text-sm font-bold">검증 대기 건이 없습니다.</p>
+                          </div>
+                        );
+                      })()}
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                          <tr>
-                            <th className="px-4 py-3 w-10">
-                              <input
-                                type="checkbox"
-                                checked={certChecked.length === disposalCerts.length}
-                                onChange={(e) => setCertChecked(e.target.checked ? disposalCerts.map(c => c.id) : [])}
-                                className="rounded border-slate-300"
-                              />
-                            </th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">인증서 번호</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출신청번호</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">대상 자산 수</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">폐기 방식</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">적용 기준</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">발급일</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">유효 상태</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">다운로드</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {disposalCerts.map(cert => (
-                            <tr key={cert.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-4 py-3">
+
+                    {/* 인증서 발급 목록 */}
+                    <div className="border-t border-slate-200 pt-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-bold text-slate-700">발급된 인증서 (CoD)</h4>
+                        <button
+                          onClick={() => {}}
+                          disabled={certChecked.length === 0}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all",
+                            certChecked.length > 0 ? "bg-rose-600 text-white hover:bg-rose-700" : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                          )}
+                        >
+                          <Download className="w-4 h-4" />
+                          일괄 다운로드 ({certChecked.length})
+                        </button>
+                      </div>
+                      <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-4 py-3 w-10">
                                 <input
                                   type="checkbox"
-                                  checked={certChecked.includes(cert.id)}
-                                  onChange={(e) => setCertChecked(e.target.checked ? [...certChecked, cert.id] : certChecked.filter(id => id !== cert.id))}
+                                  checked={certChecked.length === disposalCerts.length && disposalCerts.length > 0}
+                                  onChange={(e) => setCertChecked(e.target.checked ? disposalCerts.map(c => c.id) : [])}
                                   className="rounded border-slate-300"
                                 />
-                              </td>
-                              <td className="px-4 py-3 text-sm font-bold text-slate-900">{cert.id}</td>
-                              <td className="px-4 py-3 text-sm text-indigo-600 font-bold">{cert.emissionId}</td>
-                              <td className="px-4 py-3 text-sm text-slate-900 font-bold">{cert.assetCount}건</td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{cert.method}</td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{cert.standard}</td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{cert.issueDate}</td>
-                              <td className="px-4 py-3">
-                                <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                                  cert.status === '유효' ? "bg-emerald-100 text-emerald-700" :
-                                  cert.status === '만료' ? "bg-slate-100 text-slate-500" :
-                                  "bg-amber-100 text-amber-700"
-                                )}>{cert.status}</span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <button className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-all flex items-center gap-1">
-                                  <Download className="w-3 h-3" /> PDF
-                                </button>
-                              </td>
+                              </th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">인증서 번호</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출신청번호</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산 수</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">폐기 방식</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">발급일</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">다운로드</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {disposalCerts.map(cert => (
+                              <tr key={cert.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={certChecked.includes(cert.id)}
+                                    onChange={(e) => setCertChecked(e.target.checked ? [...certChecked, cert.id] : certChecked.filter(id => id !== cert.id))}
+                                    className="rounded border-slate-300"
+                                  />
+                                </td>
+                                <td className="px-4 py-3 text-sm font-bold text-slate-900">{cert.id}</td>
+                                <td className="px-4 py-3 text-sm text-rose-600 font-bold">{cert.emissionId}</td>
+                                <td className="px-4 py-3 text-sm font-bold text-slate-900">{cert.assetCount}건</td>
+                                <td className="px-4 py-3 text-sm text-slate-600">{cert.method}</td>
+                                <td className="px-4 py-3 text-sm text-slate-600">{cert.issueDate}</td>
+                                <td className="px-4 py-3">
+                                  <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                    cert.status === '유효' ? "bg-emerald-100 text-emerald-700" :
+                                    "bg-slate-100 text-slate-500"
+                                  )}>{cert.status}</span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <button className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-100 transition-all flex items-center gap-1">
+                                    <Download className="w-3 h-3" /> PDF
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3745,23 +3979,21 @@ export default function App() {
             className="space-y-6 pb-20"
           >
             {/* 헤더 */}
-            <div className="flex items-end justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                  <Cog className="w-8 h-8 text-orange-600" />
-                  자산 처리
-                </h1>
-                <p className="text-slate-500 mt-1">데이터 폐기 완료 후 IT자산의 분해 → 분류 → 최종 처분 과정을 관리합니다.</p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                <Cog className="w-8 h-8 text-orange-600" />
+                자산 처리
+              </h1>
+              <p className="text-slate-500 mt-1">데이터 폐기 완료 자산의 검수 → 분해 → 처분까지 전 과정을 추적 관리합니다.</p>
             </div>
 
-            {/* 파이프라인 요약 */}
+            {/* 요약 카드 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: '분해 대기', value: assetProcessingData.summary.awaiting, icon: Clock, color: 'slate' },
+                { label: '검수 대기', value: assetProcessingData.summary.inspectionWaiting, icon: Clock, color: 'slate' },
+                { label: '재사용 판정', value: assetProcessingData.summary.reusable, icon: CheckCircle2, color: 'blue' },
                 { label: '분해중', value: assetProcessingData.summary.disassembling, icon: Wrench, color: 'amber' },
-                { label: '분류 완료', value: assetProcessingData.summary.sorted, icon: Layers, color: 'blue' },
-                { label: '처분 완료', value: assetProcessingData.summary.disposed, icon: CheckCircle2, color: 'emerald' },
+                { label: '처분 완료', value: assetProcessingData.summary.completed, icon: Recycle, color: 'emerald' },
               ].map((card, i) => (
                 <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-2">
@@ -3792,366 +4024,594 @@ export default function App() {
                 <div className="bg-rose-400 rounded-r-full" style={{ width: `${assetProcessingData.summary.wasteRate}%` }} />
               </div>
               <div className="flex gap-6 mt-2 text-xs font-bold">
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-500" /> 재사용/부품회수 {assetProcessingData.summary.reuseRate}%</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-500" /> 재사용/재제조 {assetProcessingData.summary.reuseRate}%</span>
                 <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500" /> 재활용 {assetProcessingData.summary.recycleRate}%</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-rose-400" /> 폐기 {assetProcessingData.summary.wasteRate}%</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-rose-400" /> 폐기(소각/매립) {assetProcessingData.summary.wasteRate}%</span>
               </div>
             </div>
 
             {/* 탭 */}
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-              {([
-                { key: 'status' as const, label: '처리 현황', icon: ClipboardList },
-                { key: 'disassembly' as const, label: '분해/분류', icon: Layers },
-                { key: 'disposition' as const, label: '처분 경로', icon: GitBranch },
-                { key: 'stats' as const, label: '처분 통계', icon: BarChart3 },
-              ]).map(tab => (
-                <button key={tab.key} onClick={() => { setProcessingTab(tab.key); setSelectedProcessingAsset(null); }}
-                  className={cn("flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all",
-                    processingTab === tab.key ? "bg-white text-orange-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                  )}>
-                  <tab.icon className="w-4 h-4" /> {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* ===== 탭1: 처리 현황 ===== */}
-            {processingTab === 'status' && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex gap-1 bg-white border border-slate-200 p-1 rounded-xl">
-                    {['전체', '분해대기', '분해중', '분류완료', '처분완료'].map(f => (
-                      <button key={f} onClick={() => setProcessingFilter(f)}
-                        className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                          processingFilter === f ? "bg-orange-600 text-white" : "text-slate-500 hover:bg-slate-50"
-                        )}>{f}</button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="text-left px-4 py-3 font-bold text-slate-600">처리번호</th>
-                        <th className="text-left px-4 py-3 font-bold text-slate-600">자산</th>
-                        <th className="text-left px-4 py-3 font-bold text-slate-600">단계</th>
-                        <th className="text-left px-4 py-3 font-bold text-slate-600">분해 부품</th>
-                        <th className="text-left px-4 py-3 font-bold text-slate-600">착수일</th>
-                        <th className="text-left px-4 py-3 font-bold text-slate-600">담당</th>
-                        <th className="text-left px-4 py-3 font-bold text-slate-600">액션</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredProcessingAssets.map(a => (
-                        <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3 font-bold text-orange-700">{a.id}</td>
-                          <td className="px-4 py-3">
-                            <span className="font-bold text-slate-700">{a.model}</span>
-                            <p className="text-[11px] text-slate-400">{a.type} · {a.assetId}</p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                              a.stage === '분해대기' ? "bg-slate-100 text-slate-600" :
-                              a.stage === '분해중' ? "bg-amber-100 text-amber-700" :
-                              a.stage === '분류완료' ? "bg-blue-100 text-blue-700" :
-                              "bg-emerald-100 text-emerald-700"
-                            )}>{a.stage}</span>
-                          </td>
-                          <td className="px-4 py-3 font-bold text-slate-700">{a.parts.length > 0 ? `${a.parts.length}개` : '—'}</td>
-                          <td className="px-4 py-3 text-slate-500 text-xs">{a.startDate || '—'}</td>
-                          <td className="px-4 py-3 text-slate-600 text-xs font-bold">{a.operator || '미배정'}</td>
-                          <td className="px-4 py-3">
-                            {a.parts.length > 0 && (
-                              <button onClick={() => { setProcessingTab('disassembly'); setSelectedProcessingAsset(a.id); }}
-                                className="px-3 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-[11px] font-bold hover:bg-orange-100 transition-all">
-                                부품 상세
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="flex border-b border-slate-200">
+                {([
+                  { key: 'inspection' as const, label: '입고/검수', icon: ClipboardList },
+                  { key: 'disassembly' as const, label: '분해/분류', icon: Layers },
+                  { key: 'disposition' as const, label: '처분 관리', icon: GitBranch },
+                  { key: 'stats' as const, label: '통계', icon: BarChart3 },
+                ]).map(tab => (
+                  <button key={tab.key} onClick={() => setProcessingTab(tab.key)}
+                    className={cn("flex-1 py-4 text-sm font-bold transition-all border-b-2 flex items-center justify-center gap-2",
+                      processingTab === tab.key ? "text-orange-600 border-orange-600 bg-orange-50/50" : "text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-50"
+                    )}>
+                    <tab.icon className="w-4 h-4" /> {tab.label}
+                  </button>
+                ))}
               </div>
-            )}
 
-            {/* ===== 탭2: 분해/분류 ===== */}
-            {processingTab === 'disassembly' && (
-              <div className="space-y-4">
-                {!selectedProcessingAsset ? (
-                  /* 자산 선택 카드 리스트 */
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {assetProcessingData.assets.filter(a => a.parts.length > 0).map(a => {
-                      const routeCounts = { '재사용': 0, '부품회수': 0, '재활용': 0, '폐기': 0 };
-                      a.parts.forEach(p => { if (p.route && routeCounts[p.route as keyof typeof routeCounts] !== undefined) routeCounts[p.route as keyof typeof routeCounts]++; });
-                      return (
-                        <div key={a.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer"
-                          onClick={() => setSelectedProcessingAsset(a.id)}>
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-11 h-11 bg-orange-50 rounded-xl flex items-center justify-center">
-                                <Monitor className="w-5 h-5 text-orange-600" />
+              <div className="p-6">
+                {/* ===== 탭A: 입고/검수 ===== */}
+                {processingTab === 'inspection' && (
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-700 mb-3">배출요청건 목록 (데이터폐기 완료)</h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">신청번호</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출처</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산수</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">검수 진행률</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">작업</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {procEmissionGroups.map(g => {
+                              const rate = Math.round((g.inspectedCount / g.totalCount) * 100);
+                              return (
+                                <tr key={g.emissionId}
+                                  onClick={() => setSelectedProcEmission(selectedProcEmission === g.emissionId ? null : g.emissionId)}
+                                  className={cn("cursor-pointer transition-colors", selectedProcEmission === g.emissionId ? "bg-orange-50" : "hover:bg-slate-50")}
+                                >
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{g.emissionId}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{g.company} / {g.department}</td>
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{g.totalCount}건</td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-orange-500 rounded-full" style={{ width: `${rate}%` }} />
+                                      </div>
+                                      <span className="text-xs font-bold text-slate-600">{rate}%</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setSelectedProcEmission(g.emissionId); setProcCheckedAssets([]); }}
+                                      className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold hover:bg-orange-100 transition-all"
+                                    >
+                                      검수 등록
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* 선택된 요청건 자산 + 검수 폼 */}
+                    {selectedProcEmission && (
+                      <div className="border-t border-slate-200 pt-6 space-y-4">
+                        <h4 className="text-sm font-bold text-slate-700">{selectedProcEmission} 자산 목록</h4>
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-4 py-3 w-10">
+                                  <input type="checkbox"
+                                    checked={procCheckedAssets.length === selectedProcAssets.filter(a => a.stage === '검수대기').length && selectedProcAssets.filter(a => a.stage === '검수대기').length > 0}
+                                    onChange={(e) => setProcCheckedAssets(e.target.checked ? selectedProcAssets.filter(a => a.stage === '검수대기').map(a => a.id) : [])}
+                                    className="rounded border-slate-300"
+                                  />
+                                </th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산번호</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">유형 / 모델</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">단계</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">판정</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">검수자</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {selectedProcAssets.map(asset => (
+                                <tr key={asset.id} className={cn("transition-colors",
+                                  asset.stage !== '검수대기' ? "bg-emerald-50/30 opacity-60" :
+                                  procCheckedAssets.includes(asset.id) ? "bg-orange-50" : "hover:bg-slate-50"
+                                )}>
+                                  <td className="px-4 py-3">
+                                    <input type="checkbox" disabled={asset.stage !== '검수대기'}
+                                      checked={procCheckedAssets.includes(asset.id)}
+                                      onChange={(e) => setProcCheckedAssets(e.target.checked ? [...procCheckedAssets, asset.id] : procCheckedAssets.filter(id => id !== asset.id))}
+                                      className="rounded border-slate-300"
+                                    />
+                                  </td>
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{asset.assetId}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.type} / {asset.model}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                      asset.stage === '검수대기' ? "bg-slate-100 text-slate-600" :
+                                      asset.stage === '검수완료' ? "bg-emerald-100 text-emerald-700" :
+                                      asset.stage === '분해중' ? "bg-amber-100 text-amber-700" :
+                                      "bg-blue-100 text-blue-700"
+                                    )}>{asset.stage}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.verdict || '—'}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.inspector || '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* 일괄 검수 폼 */}
+                        {procCheckedAssets.length > 0 && (
+                          <div className="bg-orange-50/50 border border-orange-200 rounded-2xl p-6 space-y-5">
+                            <div className="flex items-center gap-2">
+                              <ClipboardList className="w-5 h-5 text-orange-600" />
+                              <h4 className="text-lg font-bold text-slate-900">검수 결과 등록</h4>
+                              <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-md text-xs font-bold">{procCheckedAssets.length}건</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">외관 상태</label>
+                                <select value={procInspectionForm.appearance} onChange={(e) => setProcInspectionForm({...procInspectionForm, appearance: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500">
+                                  <option>양호</option><option>손상</option><option>파손</option>
+                                </select>
                               </div>
-                              <div>
-                                <h4 className="font-bold text-slate-900">{a.model}</h4>
-                                <p className="text-xs text-slate-400">{a.id} · {a.type} · {a.assetId}</p>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">작동 여부</label>
+                                <select value={procInspectionForm.working} onChange={(e) => setProcInspectionForm({...procInspectionForm, working: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500">
+                                  <option>정상</option><option>불량</option><option>미확인</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">판정</label>
+                                <select value={procInspectionForm.verdict} onChange={(e) => setProcInspectionForm({...procInspectionForm, verdict: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500">
+                                  <option>재사용 가능</option><option>분해 대상</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">검수자</label>
+                                <select value={procInspectionForm.inspector} onChange={(e) => setProcInspectionForm({...procInspectionForm, inspector: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500">
+                                  <option>정분해</option><option>김보안</option><option>박파쇄</option><option>이기사</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5 md:col-span-2">
+                                <label className="text-xs font-bold text-slate-700">비고</label>
+                                <input type="text" placeholder="검수 메모" value={procInspectionForm.note}
+                                  onChange={(e) => setProcInspectionForm({...procInspectionForm, note: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500"
+                                />
                               </div>
                             </div>
-                            <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                              a.stage === '분류완료' ? "bg-blue-100 text-blue-700" :
-                              a.stage === '처분완료' ? "bg-emerald-100 text-emerald-700" :
-                              "bg-amber-100 text-amber-700"
-                            )}>{a.stage}</span>
+                            <button onClick={() => alert(`${procCheckedAssets.length}건 검수 결과가 등록되었습니다.`)}
+                              className="px-6 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition-all shadow-lg shadow-orange-600/20 flex items-center gap-2">
+                              <CheckCircle2 className="w-5 h-5" /> {procCheckedAssets.length}건 검수 등록
+                            </button>
                           </div>
-                          <div className="flex gap-2 text-[11px] font-bold">
-                            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded">재사용 {routeCounts['재사용']}</span>
-                            <span className="px-2 py-0.5 bg-cyan-50 text-cyan-600 rounded">부품회수 {routeCounts['부품회수']}</span>
-                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded">재활용 {routeCounts['재활용']}</span>
-                            <span className="px-2 py-0.5 bg-rose-50 text-rose-600 rounded">폐기 {routeCounts['폐기']}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ===== 탭B: 분해/분류 ===== */}
+                {processingTab === 'disassembly' && (
+                  <div className="space-y-6">
+                    {/* 분해 대상 자산 목록 */}
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-700 mb-3">분해 대상 자산</h4>
+                      <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산번호</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">유형 / 모델</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출처</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">단계</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부품수</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">작업자</th>
+                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">작업</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {procIncomingAssets.filter(a => a.verdict === '분해 대상').map(asset => {
+                              const parts = procParts.filter(p => p.parentId === asset.id);
+                              const isSelected = selectedDisassemblyAsset === asset.id;
+                              return (
+                                <tr key={asset.id}
+                                  onClick={() => setSelectedDisassemblyAsset(isSelected ? null : asset.id)}
+                                  className={cn("cursor-pointer transition-colors", isSelected ? "bg-orange-50" : "hover:bg-slate-50")}
+                                >
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{asset.assetId}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.type} / {asset.model}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.company}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                      asset.stage === '분해완료' || asset.stage === '처분완료' ? "bg-emerald-100 text-emerald-700" :
+                                      asset.stage === '분해중' ? "bg-amber-100 text-amber-700" :
+                                      "bg-slate-100 text-slate-600"
+                                    )}>{asset.stage}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{parts.length}개</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.inspector || '—'}</td>
+                                  <td className="px-4 py-3">
+                                    <button onClick={(e) => { e.stopPropagation(); setSelectedDisassemblyAsset(asset.id); }}
+                                      className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold hover:bg-orange-100 transition-all">
+                                      {parts.length > 0 ? '부품 보기' : '분해 등록'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* 선택된 자산의 분해 부품 목록 */}
+                    {selectedDisassemblyAsset && (() => {
+                      const asset = procIncomingAssets.find(a => a.id === selectedDisassemblyAsset);
+                      const parts = procParts.filter(p => p.parentId === selectedDisassemblyAsset);
+                      return (
+                        <div className="border-t border-slate-200 pt-6 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <h4 className="text-sm font-bold text-slate-700">{asset?.assetId} — {asset?.model} 분해 부품</h4>
+                              <span className="text-xs text-slate-400">{parts.length}개 부품</span>
+                            </div>
+                            <button onClick={() => alert('새 부품이 추가되었습니다.')}
+                              className="px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-700 transition-all flex items-center gap-1">
+                              + 부품 추가
+                            </button>
                           </div>
-                          <p className="text-xs text-slate-400 mt-3">부품 {a.parts.length}개 · 담당: {a.operator}</p>
+
+                          {parts.length > 0 ? (
+                            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                              <table className="w-full text-left">
+                                <thead className="bg-slate-50 border-b border-slate-200">
+                                  <tr>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부품 코드</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부품명</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">카테고리</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">처분 경로</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">소재</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">중량</th>
+                                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">예상 가치</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {parts.map(part => (
+                                    <tr key={part.id} className="hover:bg-slate-50">
+                                      <td className="px-4 py-3 text-sm font-mono font-bold text-slate-900">{part.id}</td>
+                                      <td className="px-4 py-3 text-sm text-slate-700">{part.name}</td>
+                                      <td className="px-4 py-3">
+                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[11px] font-bold">{part.category}</span>
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-bold",
+                                          part.condition === '양호' ? "bg-emerald-100 text-emerald-700" :
+                                          part.condition === '불량' || part.condition === '수명초과' ? "bg-rose-100 text-rose-700" :
+                                          "bg-slate-100 text-slate-600"
+                                        )}>{part.condition}</span>
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                          part.route === '재제조' ? "bg-blue-100 text-blue-700" :
+                                          part.route === '재활용' ? "bg-emerald-100 text-emerald-700" :
+                                          part.route === '폐기' ? "bg-rose-100 text-rose-700" :
+                                          "bg-slate-100 text-slate-600"
+                                        )}>{part.route || '미배정'}</span>
+                                      </td>
+                                      <td className="px-4 py-3 text-sm text-slate-500">{part.material || '—'}</td>
+                                      <td className="px-4 py-3 text-sm text-slate-600">{part.weight}</td>
+                                      <td className="px-4 py-3 text-sm font-bold text-slate-700">{part.value}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="text-center py-12 bg-slate-50 rounded-xl text-slate-400">
+                              <Layers className="w-8 h-8 mx-auto mb-2" />
+                              <p className="text-sm font-bold">아직 분해 등록된 부품이 없습니다.</p>
+                              <p className="text-xs mt-1">위의 &lsquo;+ 부품 추가&rsquo; 버튼으로 부품을 등록하세요.</p>
+                            </div>
+                          )}
                         </div>
                       );
-                    })}
+                    })()}
                   </div>
-                ) : (
-                  /* 선택된 자산의 부품 상세 */
-                  (() => {
-                    const asset = assetProcessingData.assets.find(a => a.id === selectedProcessingAsset);
-                    if (!asset) return null;
-                    return (
-                      <div className="space-y-4">
-                        <button onClick={() => setSelectedProcessingAsset(null)}
-                          className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-700">
-                          <ArrowLeft className="w-4 h-4" /> 목록으로
-                        </button>
-
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-                          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
-                                <Monitor className="w-6 h-6 text-orange-600" />
-                              </div>
-                              <div>
-                                <h3 className="text-lg font-bold text-slate-900">{asset.model}</h3>
-                                <p className="text-sm text-slate-400">{asset.id} · {asset.type} · 담당: {asset.operator}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* 부품 테이블 */}
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200">
-                                  <th className="text-left px-4 py-3 font-bold text-slate-600">부품</th>
-                                  <th className="text-left px-4 py-3 font-bold text-slate-600">분류</th>
-                                  <th className="text-left px-4 py-3 font-bold text-slate-600">상태</th>
-                                  <th className="text-left px-4 py-3 font-bold text-slate-600">처분 경로</th>
-                                  <th className="text-left px-4 py-3 font-bold text-slate-600">회수 소재</th>
-                                  <th className="text-left px-4 py-3 font-bold text-slate-600">중량</th>
-                                  <th className="text-left px-4 py-3 font-bold text-slate-600">잔존가치</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {asset.parts.map(p => (
-                                  <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                    <td className="px-4 py-3">
-                                      <span className="font-bold text-slate-800">{p.name}</span>
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-500 text-xs">{p.category}</td>
-                                    <td className="px-4 py-3">
-                                      <span className={cn("px-2 py-0.5 rounded text-[11px] font-bold",
-                                        p.condition === '양호' ? "bg-emerald-50 text-emerald-700" :
-                                        p.condition === '불량' ? "bg-rose-50 text-rose-700" :
-                                        p.condition === '수명초과' ? "bg-amber-50 text-amber-700" :
-                                        p.condition === '폐기완료' ? "bg-slate-100 text-slate-500" :
-                                        "bg-blue-50 text-blue-700"
-                                      )}>{p.condition}</span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      {p.route ? (
-                                        <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                                          p.route === '재사용' ? "bg-blue-100 text-blue-700" :
-                                          p.route === '부품회수' ? "bg-cyan-100 text-cyan-700" :
-                                          p.route === '재활용' ? "bg-emerald-100 text-emerald-700" :
-                                          "bg-rose-100 text-rose-700"
-                                        )}>{p.route}</span>
-                                      ) : <span className="text-xs text-slate-400">미배정</span>}
-                                    </td>
-                                    <td className="px-4 py-3 text-xs text-slate-500 font-mono">{p.material || '—'}</td>
-                                    <td className="px-4 py-3 text-xs font-bold text-slate-600">{p.weight}</td>
-                                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{p.value || '—'}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()
                 )}
-              </div>
-            )}
 
-            {/* ===== 탭3: 처분 경로 관리 ===== */}
-            {processingTab === 'disposition' && (
-              <div className="space-y-6">
-                {/* 4가지 처분 경로 카드 */}
-                {[
-                  { title: '부품 회수', desc: '검수 완료된 양품 부품을 재고로 등록하여 재판매 준비', icon: Box, color: 'cyan',
-                    items: assetProcessingData.assets.flatMap(a => a.parts.filter(p => p.route === '부품회수')),
-                  },
-                  { title: '재사용 (Refurbish)', desc: '정비·초기화 후 재판매 또는 기부 대상으로 관리', icon: Gift, color: 'blue',
-                    items: assetProcessingData.assets.flatMap(a => a.parts.filter(p => p.route === '재사용')),
-                  },
-                  { title: '재활용 (Material Recovery)', desc: '소재별 분리 후 재활용 업체에 인계, 원재료 회수', icon: Recycle, color: 'emerald',
-                    items: assetProcessingData.assets.flatMap(a => a.parts.filter(p => p.route === '재활용')),
-                  },
-                  { title: '최종 폐기', desc: '재활용 불가 잔여물 소각/매립 처리 (올바로 연동)', icon: Trash2, color: 'rose',
-                    items: assetProcessingData.assets.flatMap(a => a.parts.filter(p => p.route === '폐기')),
-                  },
-                ].map((route, ri) => (
-                  <div key={ri} className={cn("bg-white rounded-2xl border shadow-sm overflow-hidden",
-                    route.color === 'rose' ? "border-rose-200" : "border-slate-200"
-                  )}>
-                    <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center",
-                          route.color === 'cyan' ? "bg-cyan-50 text-cyan-600" :
-                          route.color === 'blue' ? "bg-blue-50 text-blue-600" :
-                          route.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
-                          "bg-rose-50 text-rose-600"
-                        )}>
-                          <route.icon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-slate-900">{route.title}</h3>
-                          <p className="text-xs text-slate-400">{route.desc}</p>
+                {/* ===== 탭C: 처분 관리 ===== */}
+                {processingTab === 'disposition' && (
+                  <div className="space-y-6">
+                    {/* 필터 */}
+                    <div className="flex gap-2">
+                      {['전체', '재사용', '재제조', '재활용', '폐기'].map(f => (
+                        <button key={f} onClick={() => setProcDispositionFilter(f)}
+                          className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-all",
+                            procDispositionFilter === f ? "bg-orange-600 text-white shadow-lg shadow-orange-600/20" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                          )}>
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* 재사용 제품 */}
+                    {(procDispositionFilter === '전체' || procDispositionFilter === '재사용') && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-blue-500" /> 재사용 출하
+                          <span className="text-slate-400 font-normal">— 검수에서 재사용 가능 판정된 제품</span>
+                        </h4>
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left">
+                            <thead className="bg-blue-50/50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산번호</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">유형 / 모델</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출처</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">출하 등록</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {procIncomingAssets.filter(a => a.verdict === '재사용 가능').map(asset => (
+                                <tr key={asset.id} className="hover:bg-slate-50">
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{asset.assetId}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.type} / {asset.model}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{asset.company}</td>
+                                  <td className="px-4 py-3"><span className="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-[11px] font-bold">재사용 가능</span></td>
+                                  <td className="px-4 py-3">
+                                    <button onClick={() => alert(`${asset.assetId} 출하 등록`)}
+                                      className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all">
+                                      출하 등록
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
-                      <span className="text-2xl font-black text-slate-900">{route.items.length}<span className="text-sm font-bold text-slate-400 ml-1">건</span></span>
-                    </div>
-                    {route.items.length > 0 && (
-                      <div className="p-4">
-                        <div className="space-y-2">
-                          {route.items.map(item => (
-                            <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                              <div className="flex items-center gap-3">
-                                <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold",
-                                  item.condition === '양호' ? "bg-emerald-100 text-emerald-700" :
-                                  item.condition === '수명초과' ? "bg-amber-100 text-amber-700" :
-                                  item.condition === '폐기완료' ? "bg-slate-200 text-slate-600" :
-                                  "bg-rose-100 text-rose-700"
-                                )}>{item.condition}</span>
-                                <span className="text-sm font-bold text-slate-800">{item.name}</span>
-                              </div>
-                              <div className="flex items-center gap-4 text-xs text-slate-500">
-                                {item.material && <span className="font-mono">{item.material}</span>}
-                                <span className="font-bold">{item.weight}</span>
-                                <span className="font-bold text-slate-800">{item.value}</span>
+                    )}
+
+                    {/* 재제조 부품 */}
+                    {(procDispositionFilter === '전체' || procDispositionFilter === '재제조') && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-indigo-500" /> 재제조 부품 출하
+                          <span className="text-slate-400 font-normal">— 분해 후 재제조 가능 판정 부품</span>
+                        </h4>
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left">
+                            <thead className="bg-indigo-50/50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부품코드</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부품명</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">원 자산</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">예상 가치</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">처분</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {procParts.filter(p => p.route === '재제조').map(part => (
+                                <tr key={part.id} className="hover:bg-slate-50">
+                                  <td className="px-4 py-3 text-sm font-mono font-bold text-slate-900">{part.id}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-700">{part.name}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-500">{part.parentAsset} ({part.parentModel})</td>
+                                  <td className="px-4 py-3"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[11px] font-bold">{part.condition}</span></td>
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-700">{part.value}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                      part.dispositionStatus === '출하완료' ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+                                    )}>{part.dispositionStatus}</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 재활용 원료 */}
+                    {(procDispositionFilter === '전체' || procDispositionFilter === '재활용') && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-emerald-500" /> 재활용 원료 납품
+                          <span className="text-slate-400 font-normal">— 소재별 분류 후 원료 납품</span>
+                        </h4>
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left">
+                            <thead className="bg-emerald-50/50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부품코드</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부품명</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">소재</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">중량</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">예상 가치</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">처분</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {procParts.filter(p => p.route === '재활용').map(part => (
+                                <tr key={part.id} className="hover:bg-slate-50">
+                                  <td className="px-4 py-3 text-sm font-mono font-bold text-slate-900">{part.id}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-700">{part.name}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{part.material || '—'}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{part.weight}</td>
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-700">{part.value}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                      part.dispositionStatus === '납품완료' ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+                                    )}>{part.dispositionStatus}</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 폐기 (소각/매립) */}
+                    {(procDispositionFilter === '전체' || procDispositionFilter === '폐기') && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-rose-500" /> 폐기 (소각/매립)
+                          <span className="text-slate-400 font-normal">— 재활용 불가 잔재물</span>
+                        </h4>
+                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left">
+                            <thead className="bg-rose-50/50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부품코드</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부품명</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">원 자산</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">중량</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">처분</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {procParts.filter(p => p.route === '폐기').map(part => (
+                                <tr key={part.id} className="hover:bg-slate-50">
+                                  <td className="px-4 py-3 text-sm font-mono font-bold text-slate-900">{part.id}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-700">{part.name}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-500">{part.parentAsset}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{part.weight}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                      part.dispositionStatus === '소각완료' ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
+                                    )}>{part.dispositionStatus}</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ===== 탭D: 통계 ===== */}
+                {processingTab === 'stats' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* 월별 처분 경로 추이 */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-slate-700">월별 처분 경로 추이</h4>
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={assetProcessingData.dispositionStats.monthly}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
+                              <Legend formatter={(value: string) => <span className="text-xs font-bold text-slate-600">{value}</span>} />
+                              <Bar dataKey="reuse" name="재사용" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                              <Bar dataKey="partsRecovery" name="재제조" stackId="b" fill="#6366f1" />
+                              <Bar dataKey="recycle" name="재활용" fill="#10b981" />
+                              <Bar dataKey="waste" name="폐기(소각/매립)" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      {/* 자원 회수량 */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-slate-700">자원 회수량 (누적)</h4>
+                        <div className="space-y-3">
+                          {assetProcessingData.dispositionStats.materialRecovery.map((m, i) => (
+                            <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                              <span className="text-sm font-bold text-slate-700">{m.material}</span>
+                              <div className="flex items-center gap-4">
+                                <span className="text-sm text-slate-600">{m.recovered}</span>
+                                <span className="text-sm font-bold text-emerald-600">{m.value}</span>
                               </div>
                             </div>
                           ))}
                         </div>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                    </div>
 
-            {/* ===== 탭4: 처분 통계 ===== */}
-            {processingTab === 'stats' && (
-              <div className="space-y-6">
-                {/* 월별 처분 경로 차트 */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                    <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-                      <BarChart3 className="w-5 h-5 text-orange-600" /> 월별 처분 경로 (건)
-                    </h3>
-                    <ResponsiveContainer width="100%" height={260}>
-                      <BarChart data={assetProcessingData.dispositionStats.monthly} barGap={2}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                        <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px' }} />
-                        <Bar dataKey="reuse" name="재사용" fill="#3b82f6" radius={[4,4,0,0]} />
-                        <Bar dataKey="partsRecovery" name="부품회수" fill="#06b6d4" radius={[4,4,0,0]} />
-                        <Bar dataKey="recycle" name="재활용" fill="#10b981" radius={[4,4,0,0]} />
-                        <Bar dataKey="waste" name="폐기" fill="#f43f5e" radius={[4,4,0,0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* 처분 비율 파이차트 */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                    <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-                      <Recycle className="w-5 h-5 text-orange-600" /> 처분 경로 비율 (누적)
-                    </h3>
-                    <ResponsiveContainer width="100%" height={260}>
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: '재사용', value: 105, fill: '#3b82f6' },
-                            { name: '부품회수', value: 57, fill: '#06b6d4' },
-                            { name: '재활용', value: 235, fill: '#10b981' },
-                            { name: '폐기', value: 19, fill: '#f43f5e' },
-                          ]}
-                          cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={3} dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
-                        />
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px' }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* 원재료 회수 현황 */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                  <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <Gem className="w-5 h-5 text-orange-600" /> 원재료 회수 현황 (2026년 누적)
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {assetProcessingData.dispositionStats.materialRecovery.map((m, i) => (
-                      <div key={i} className="p-4 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-100">
-                        <p className="text-sm font-bold text-slate-800">{m.material}</p>
-                        <p className="text-2xl font-black text-slate-900 mt-1">{m.recovered}</p>
-                        <p className="text-xs font-bold text-emerald-600 mt-1">{m.value}</p>
+                    {/* 경제적 가치 */}
+                    <div className="bg-orange-50 rounded-2xl p-6">
+                      <h4 className="text-sm font-bold text-slate-700 mb-4">경제적 가치 요약</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        {[
+                          { label: '재사용 매각', value: `₩${(assetProcessingData.dispositionStats.economics.resaleRevenue / 10000).toFixed(0)}만`, color: 'text-blue-600' },
+                          { label: '부품 매각', value: `₩${(assetProcessingData.dispositionStats.economics.partsRevenue / 10000).toFixed(0)}만`, color: 'text-indigo-600' },
+                          { label: '원료 매각', value: `₩${(assetProcessingData.dispositionStats.economics.materialRevenue / 10000).toFixed(0)}만`, color: 'text-emerald-600' },
+                          { label: '처분 비용', value: `-₩${(assetProcessingData.dispositionStats.economics.disposalCost / 10000).toFixed(0)}만`, color: 'text-rose-600' },
+                          { label: '순 가치', value: `₩${(assetProcessingData.dispositionStats.economics.netValue / 10000).toFixed(0)}만`, color: 'text-orange-700' },
+                        ].map((stat, i) => (
+                          <div key={i} className="text-center">
+                            <p className="text-xs font-bold text-slate-500">{stat.label}</p>
+                            <p className={cn("text-xl font-black mt-1", stat.color)}>{stat.value}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </div>
-
-                {/* 경제적 성과 */}
-                <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-6">
-                  <h3 className="text-base font-bold text-orange-900 mb-4 flex items-center gap-2">
-                    <CircleDollarSign className="w-5 h-5" /> 경제적 성과 (2026년 누적)
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {[
-                      { label: '재판매 수익', value: `₩${(assetProcessingData.dispositionStats.economics.resaleRevenue / 10000).toFixed(0)}만`, color: 'text-blue-700' },
-                      { label: '부품 판매', value: `₩${(assetProcessingData.dispositionStats.economics.partsRevenue / 10000).toFixed(0)}만`, color: 'text-cyan-700' },
-                      { label: '원재료 회수', value: `₩${(assetProcessingData.dispositionStats.economics.materialRevenue / 10000).toFixed(0)}만`, color: 'text-emerald-700' },
-                      { label: '폐기 비용', value: `-₩${(assetProcessingData.dispositionStats.economics.disposalCost / 10000).toFixed(0)}만`, color: 'text-rose-600' },
-                      { label: '순 회수가치', value: `₩${(assetProcessingData.dispositionStats.economics.netValue / 10000).toFixed(0)}만`, color: 'text-orange-800' },
-                    ].map((stat, i) => (
-                      <div key={i} className={cn("text-center p-3 rounded-xl", i === 4 ? "bg-white/80 border border-orange-300" : "bg-white/50")}>
-                        <p className="text-xs font-bold text-orange-700">{stat.label}</p>
-                        <p className={cn("text-xl font-black mt-1", stat.color)}>{stat.value}</p>
-                      </div>
-                    ))}
-                  </div>
+                )}
                 </div>
               </div>
-            )}
-          </motion.div>
+            </motion.div>
         );
 
       case 'circulation':
+        const circStatOptions = [
+          { key: 'processing', label: '처리량 추이', desc: '월별 처리 건수 및 누적' },
+          { key: 'carbon', label: '탄소 절감량', desc: 'CO₂e 절감 추이' },
+          { key: 'landfill', label: '매립 회피량', desc: '매립 회피 중량' },
+          { key: 'economic', label: '잔존가치 회수', desc: '회수액 및 추세' },
+          { key: 'collection', label: '수거 추이', desc: '건수 및 중량' },
+          { key: 'material', label: '원자재 회수', desc: '소재별 회수량' },
+          { key: 'lifespan', label: '수명 연장', desc: '리퍼 사용 연수' },
+        ];
+        const circPeriodOptions = ['최근 3개월', '최근 6개월', '최근 1년'];
+        const circSelectedStat = selectedCircStat;
+        const circPeriod = selectedCircPeriod;
+
+        // 배출처별 요약 데이터
+        const circEmissionSummaryAll = [
+          { emissionId: 'DSP-2026-00123', company: 'K-ITAD 전자', department: 'IT인프라팀', totalAssets: 8, reuse: 1, recycle: 4, waste: 1, inProgress: 2, co2Saved: 3200, recoveryValue: 2850000 },
+          { emissionId: 'DSP-2026-00124', company: 'SKT', department: 'IT인프라팀', totalAssets: 4, reuse: 0, recycle: 0, waste: 0, inProgress: 4, co2Saved: 0, recoveryValue: 0 },
+          { emissionId: 'DSP-2026-00120', company: '현대모비스', department: 'DX실', totalAssets: 3, reuse: 0, recycle: 2, waste: 1, inProgress: 0, co2Saved: 4100, recoveryValue: 3200000 },
+          { emissionId: 'DSP-2026-00118', company: '삼성SDS', department: 'IT보안팀', totalAssets: 18, reuse: 5, recycle: 10, waste: 3, inProgress: 0, co2Saved: 6500, recoveryValue: 4800000 },
+          { emissionId: 'DSP-2026-00105', company: 'LG전자', department: '인프라운영팀', totalAssets: 8, reuse: 2, recycle: 4, waste: 2, inProgress: 0, co2Saved: 2800, recoveryValue: 1950000 },
+        ];
+        // 역할에 따라 필터링: 배출처는 자기 데이터만, 관리자는 전체
+        const circEmissionSummary = userRole === 'admin' ? circEmissionSummaryAll : circEmissionSummaryAll.filter(e => e.company === userCompany);
+        const circTotalAssets = circEmissionSummary.reduce((s, e) => s + e.totalAssets, 0);
+        const circTotalCo2 = circEmissionSummary.reduce((s, e) => s + e.co2Saved, 0);
+        const circTotalRecovery = circEmissionSummary.reduce((s, e) => s + e.recoveryValue, 0);
+        const circTotalReuse = circEmissionSummary.reduce((s, e) => s + e.reuse, 0);
+        const circTotalRecycle = circEmissionSummary.reduce((s, e) => s + e.recycle, 0);
+        const circTotalWaste = circEmissionSummary.reduce((s, e) => s + e.waste, 0);
+        const circTotalDone = circTotalReuse + circTotalRecycle + circTotalWaste;
+        const circCirculationRate = circTotalDone > 0 ? Math.round(((circTotalReuse + circTotalRecycle) / circTotalDone) * 100) : 0;
+
         return (
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
@@ -4159,22 +4619,50 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.98 }}
             className="space-y-6 pb-20"
           >
-            {/* Page Title */}
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                <Recycle className="w-8 h-8 text-emerald-600" />
-                자원 순환 통계
-              </h1>
-              <p className="text-slate-500 mt-1">IT자산 처리 전 과정의 자원순환 성과와 ESG 지표를 통계 형태로 확인합니다.</p>
+            {/* 헤더 + 역할 전환 */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                  <Recycle className="w-8 h-8 text-emerald-600" />
+                  자원 순환
+                </h1>
+                <p className="text-slate-500 mt-1">
+                  {userRole === 'admin' ? '전체 배출처의 자원순환 성과를 통합 조회합니다.' : `${userCompany}의 배출건별 자원순환 성과를 확인합니다.`}
+                </p>
+              </div>
+              {/* 역할 전환 (데모용) */}
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                <button onClick={() => { setUserRole('emitter'); setUserCompany('K-ITAD 전자'); }}
+                  className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all",
+                    userRole === 'emitter' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500"
+                  )}>
+                  <User className="w-3 h-3 inline mr-1" />배출처
+                </button>
+                <button onClick={() => setUserRole('admin')}
+                  className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all",
+                    userRole === 'admin' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500"
+                  )}>
+                  <ShieldCheck className="w-3 h-3 inline mr-1" />관리자
+                </button>
+              </div>
             </div>
 
-            {/* 상단 요약 카드 4개 */}
+            {/* 관리자 모드: 배출처 선택 */}
+            {userRole === 'admin' && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-emerald-700">관리자 모드</span>
+                <span className="text-xs text-emerald-600">전체 배출처 데이터를 조회하고 있습니다.</span>
+              </div>
+            )}
+
+            {/* 요약 카드 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: '자원순환율', value: '90%', sub: '(재사용+재활용) ÷ 총 처리', icon: Recycle, color: 'emerald' },
-                { label: '탄소 절감량', value: '9,800 kg', sub: 'CO₂e 누적 절감', icon: Leaf, color: 'emerald' },
-                { label: '매립 회피량', value: '1,400 kg', sub: '금월 기준', icon: Globe, color: 'blue' },
-                { label: '잔존가치 회수', value: '₩7,500만', sub: '재판매 + 부품 수익', icon: TrendingUp, color: 'indigo' },
+                { label: '자원순환율', value: `${circCirculationRate}%`, sub: '(재사용+재활용) ÷ 총 처리', icon: Recycle, color: 'emerald' },
+                { label: '탄소 절감량', value: `${circTotalCo2 > 1000 ? `${(circTotalCo2 / 1000).toFixed(1)}t` : `${circTotalCo2}kg`}`, sub: 'CO₂e 누적 절감', icon: Leaf, color: 'emerald' },
+                { label: '처리 자산', value: `${circTotalAssets}건`, sub: userRole === 'admin' ? `${circEmissionSummary.length}개 배출처` : `${circEmissionSummary.length}건의 배출요청`, icon: Database, color: 'blue' },
+                { label: '잔존가치 회수', value: `₩${(circTotalRecovery / 10000).toFixed(0)}만`, sub: '재판매 + 원료 수익', icon: TrendingUp, color: 'indigo' },
               ].map((card, i) => (
                 <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-3 mb-2">
@@ -4193,15 +4681,15 @@ export default function App() {
               ))}
             </div>
 
-            {/* 처리 현황 섹션 */}
+            {/* 처리 방식 비율 + 배출건별 테이블 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* 처리 방식 비율 (도넛) */}
+              {/* 처리 방식 비율 도넛 */}
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-700 mb-4">처리 방식 비율</h3>
-                <div className="h-56">
+                <div className="h-52">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={processingMethodData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
+                      <Pie data={processingMethodData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={4} dataKey="value">
                         {processingMethodData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                       </Pie>
                       <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
@@ -4211,174 +4699,239 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 월별 처리량 추이 */}
+              {/* 배출건별 자원순환 현황 */}
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
-                <h3 className="text-sm font-bold text-slate-700 mb-4">월별 처리량 추이</h3>
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={operationalData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
-                      <Legend formatter={(value: string) => <span className="text-xs font-bold text-slate-600">{value}</span>} />
-                      <Bar yAxisId="left" dataKey="count" name="월별 처리(대)" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                      <Line yAxisId="right" type="monotone" dataKey="cumulative" name="누적(대)" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                <h3 className="text-sm font-bold text-slate-700 mb-4">
+                  {userRole === 'admin' ? '배출처별 자원순환 현황' : `${userCompany} 배출건별 현황`}
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">신청번호</th>
+                        {userRole === 'admin' && <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">배출처</th>}
+                        <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">부서</th>
+                        <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">자산</th>
+                        <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">재사용</th>
+                        <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">재활용</th>
+                        <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">폐기</th>
+                        <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">CO₂ 절감</th>
+                        <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">회수가치</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {circEmissionSummary.map(e => (
+                        <tr key={e.emissionId} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-3 py-2.5 text-sm font-bold text-slate-900">{e.emissionId}</td>
+                          {userRole === 'admin' && (
+                            <td className="px-3 py-2.5 text-sm font-medium text-slate-700">{e.company}</td>
+                          )}
+                          <td className="px-3 py-2.5 text-sm text-slate-500">{e.department}</td>
+                          <td className="px-3 py-2.5 text-sm font-bold text-slate-900">{e.totalAssets}</td>
+                          <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-[11px] font-bold">{e.reuse}</span></td>
+                          <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[11px] font-bold">{e.recycle}</span></td>
+                          <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-md text-[11px] font-bold">{e.waste}</span></td>
+                          <td className="px-3 py-2.5 text-sm text-emerald-600 font-bold">{e.co2Saved > 0 ? `${(e.co2Saved / 1000).toFixed(1)}t` : '—'}</td>
+                          <td className="px-3 py-2.5 text-sm font-bold text-slate-700">{e.recoveryValue > 0 ? `₩${(e.recoveryValue / 10000).toFixed(0)}만` : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    {circEmissionSummary.length > 1 && (
+                      <tfoot className="bg-slate-50 border-t-2 border-slate-300">
+                        <tr>
+                          <td className="px-3 py-2.5 text-sm font-black text-slate-900" colSpan={userRole === 'admin' ? 3 : 2}>합계</td>
+                          <td className="px-3 py-2.5 text-sm font-black text-slate-900">{circTotalAssets}</td>
+                          <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded-md text-[11px] font-black">{circTotalReuse}</span></td>
+                          <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded-md text-[11px] font-black">{circTotalRecycle}</span></td>
+                          <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-rose-200 text-rose-800 rounded-md text-[11px] font-black">{circTotalWaste}</span></td>
+                          <td className="px-3 py-2.5 text-sm text-emerald-700 font-black">{circTotalCo2 > 1000 ? `${(circTotalCo2 / 1000).toFixed(1)}t` : `${circTotalCo2}kg`}</td>
+                          <td className="px-3 py-2.5 text-sm font-black text-slate-900">₩{(circTotalRecovery / 10000).toFixed(0)}만</td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
                 </div>
               </div>
             </div>
 
-            {/* ESG 환경 성과 섹션 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* 탄소 절감량 누적 */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <h3 className="text-sm font-bold text-slate-700 mb-4">탄소 절감량 추이 (kg CO₂e)</h3>
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={esgCarbonData}>
-                      <defs>
-                        <linearGradient id="colorCarbonCirc" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
-                      <Area type="monotone" dataKey="reduction" name="절감량" stroke="#10b981" strokeWidth={3} fill="url(#colorCarbonCirc)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* 매립 회피량 */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <h3 className="text-sm font-bold text-slate-700 mb-4">매립 회피량 (kg)</h3>
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={landfillAvoidanceData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
-                      <Bar dataKey="weight" name="회피량(kg)" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-
-            {/* 경제적 가치 섹션 */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* 잔존가치 회수액 */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
-                <h3 className="text-sm font-bold text-slate-700 mb-4">잔존가치 회수액 추이 (원)</h3>
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={economicValueData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(v: number) => `${(v / 1000000).toFixed(0)}M`} />
-                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} formatter={(value: number) => [`₩${value.toLocaleString()}`, '']} />
-                      <Legend formatter={(value: string) => <span className="text-xs font-bold text-slate-600">{value}</span>} />
-                      <Bar dataKey="recovery" name="회수액" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                      <Line type="monotone" dataKey="trend" name="추세" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* 원자재 회수량 */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <h3 className="text-sm font-bold text-slate-700 mb-4">원자재 회수량 (g/kg)</h3>
-                <div className="space-y-3 mt-2">
-                  {[
-                    { name: '금(Au)', value: 25, unit: 'g', max: 50, color: 'bg-amber-400' },
-                    { name: '은(Ag)', value: 88, unit: 'g', max: 150, color: 'bg-slate-400' },
-                    { name: '구리(Cu)', value: 240, unit: 'kg', max: 400, color: 'bg-orange-400' },
-                    { name: '알루미늄(Al)', value: 580, unit: 'kg', max: 800, color: 'bg-blue-400' },
-                    { name: '희토류', value: 15, unit: 'g', max: 30, color: 'bg-purple-400' },
-                  ].map((item, i) => (
-                    <div key={i}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-bold text-slate-600">{item.name}</span>
-                        <span className="font-bold text-slate-900">{item.value}{item.unit}</span>
-                      </div>
-                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className={cn("h-full rounded-full", item.color)} style={{ width: `${(item.value / item.max) * 100}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 수명연장 + 비용절감 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* 수명연장 효과 */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <h3 className="text-sm font-bold text-slate-700 mb-4">리퍼 장비 평균 수명연장 (년)</h3>
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={lifeExtensionData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} domain={[0, 4]} />
-                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
-                      <Line type="monotone" dataKey="years" name="추가 사용 연수" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 5, fill: '#8b5cf6' }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* 처리 비용 절감 비교 */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <h3 className="text-sm font-bold text-slate-700 mb-4">처리 비용 절감 비교 (만원/건)</h3>
-                <div className="h-56 flex items-end justify-center gap-16 pb-8">
-                  {costSavingData.map((item, i) => (
-                    <div key={i} className="flex flex-col items-center gap-2">
-                      <span className="text-lg font-black text-slate-900">{item.cost}</span>
-                      <motion.div
-                        initial={{ height: 0 }}
-                        animate={{ height: `${(item.cost / 1500) * 160}px` }}
-                        transition={{ duration: 0.8, delay: i * 0.2 }}
-                        className={cn("w-20 rounded-t-xl", i === 0 ? "bg-slate-300" : "bg-emerald-500")}
-                      />
-                      <span className={cn("text-sm font-bold", i === 0 ? "text-slate-500" : "text-emerald-600")}>{item.name}</span>
-                    </div>
-                  ))}
-                  <div className="absolute right-12 top-16 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-                    <p className="text-xs font-bold text-emerald-700">29% 절감</p>
+            {/* 기간별 통계 영역 */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-slate-900">기간별 통계</h3>
+                  <div className="flex gap-2">
+                    {circPeriodOptions.map(p => (
+                      <button key={p} onClick={() => setSelectedCircPeriod(p)}
+                        className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-all",
+                          circPeriod === p ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                        )}>{p}</button>
+                    ))}
                   </div>
                 </div>
+                {/* 통계 항목 선택 */}
+                <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
+                  {circStatOptions.map(opt => (
+                    <button key={opt.key} onClick={() => setSelectedCircStat(opt.key)}
+                      className={cn("px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap border",
+                        circSelectedStat === opt.key ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                      )}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* 월별 수거 추이 */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-700 mb-4">월별 수거 추이</h3>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={collectionTrendData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                    <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
-                    <Legend formatter={(value: string) => <span className="text-xs font-bold text-slate-600">{value}</span>} />
-                    <Bar yAxisId="left" dataKey="count" name="수거 건수" fill="#10b981" radius={[6, 6, 0, 0]} />
-                    <Line yAxisId="right" type="monotone" dataKey="weight" name="중량(kg)" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} />
-                  </ComposedChart>
-                </ResponsiveContainer>
+              <div className="p-6">
+                <div className="h-72">
+                  {circSelectedStat === 'processing' && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={operationalData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
+                        <Legend formatter={(value: string) => <span className="text-xs font-bold text-slate-600">{value}</span>} />
+                        <Bar yAxisId="left" dataKey="count" name="월별 처리(대)" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                        <Line yAxisId="right" type="monotone" dataKey="cumulative" name="누적(대)" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  )}
+                  {circSelectedStat === 'carbon' && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={esgCarbonData}>
+                        <defs>
+                          <linearGradient id="colorCarbonCirc" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
+                        <Area type="monotone" dataKey="reduction" name="절감량 (kg CO₂e)" stroke="#10b981" strokeWidth={3} fill="url(#colorCarbonCirc)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                  {circSelectedStat === 'landfill' && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={landfillAvoidanceData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
+                        <Bar dataKey="weight" name="매립 회피량 (kg)" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                  {circSelectedStat === 'economic' && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={economicValueData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(v: number) => `${(v / 1000000).toFixed(0)}M`} />
+                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} formatter={(value: number) => [`₩${value.toLocaleString()}`, '']} />
+                        <Legend formatter={(value: string) => <span className="text-xs font-bold text-slate-600">{value}</span>} />
+                        <Bar dataKey="recovery" name="회수액" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                        <Line type="monotone" dataKey="trend" name="추세" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  )}
+                  {circSelectedStat === 'collection' && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={collectionTrendData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
+                        <Legend formatter={(value: string) => <span className="text-xs font-bold text-slate-600">{value}</span>} />
+                        <Bar yAxisId="left" dataKey="count" name="수거 건수" fill="#10b981" radius={[6, 6, 0, 0]} />
+                        <Line yAxisId="right" type="monotone" dataKey="weight" name="중량(kg)" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  )}
+                  {circSelectedStat === 'material' && (
+                    <div className="h-full flex items-center">
+                      <div className="w-full space-y-4">
+                        {[
+                          { name: '금 (Au)', value: 25, unit: 'g', max: 50, color: 'bg-amber-400', textColor: 'text-amber-700' },
+                          { name: '은 (Ag)', value: 88, unit: 'g', max: 150, color: 'bg-slate-400', textColor: 'text-slate-700' },
+                          { name: '구리 (Cu)', value: 240, unit: 'kg', max: 400, color: 'bg-orange-400', textColor: 'text-orange-700' },
+                          { name: '알루미늄 (Al)', value: 580, unit: 'kg', max: 800, color: 'bg-blue-400', textColor: 'text-blue-700' },
+                          { name: '철 (Fe)', value: 128, unit: 'kg', max: 300, color: 'bg-slate-500', textColor: 'text-slate-700' },
+                          { name: '희토류', value: 15, unit: 'g', max: 30, color: 'bg-purple-400', textColor: 'text-purple-700' },
+                        ].map((item, i) => (
+                          <div key={i} className="flex items-center gap-4">
+                            <span className="text-sm font-bold text-slate-600 w-28">{item.name}</span>
+                            <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                              <div className={cn("h-full rounded-full", item.color)} style={{ width: `${(item.value / item.max) * 100}%` }} />
+                            </div>
+                            <span className={cn("text-sm font-black w-20 text-right", item.textColor)}>{item.value}{item.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {circSelectedStat === 'lifespan' && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={lifeExtensionData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} domain={[0, 4]} />
+                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
+                        <Line type="monotone" dataKey="years" name="추가 사용 연수" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 5, fill: '#8b5cf6' }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
               </div>
             </div>
           </motion.div>
         );
       case 'reports':
+        // 배출건별 리포트 데이터
+        const reportEmissionsAll = [
+          { emissionId: 'DSP-2026-00123', company: 'K-ITAD 전자', department: 'IT인프라팀', date: '2026-03-22', assets: 8, status: '처리중' as string,
+            reports: [
+              { type: 'CoD', title: '데이터 폐기 인증서', count: 2, ready: true },
+              { type: 'transport', title: '보안운송 이력서', count: 1, ready: true },
+              { type: 'esg', title: 'ESG 성과 리포트', count: 1, ready: false },
+              { type: 'asset', title: '자산처리 결과서', count: 1, ready: false },
+            ]},
+          { emissionId: 'DSP-2026-00124', company: 'SKT', department: 'IT인프라팀', date: '2026-03-24', assets: 4, status: '처리중' as string,
+            reports: [
+              { type: 'CoD', title: '데이터 폐기 인증서', count: 0, ready: false },
+              { type: 'transport', title: '보안운송 이력서', count: 1, ready: true },
+              { type: 'esg', title: 'ESG 성과 리포트', count: 1, ready: false },
+              { type: 'asset', title: '자산처리 결과서', count: 1, ready: false },
+            ]},
+          { emissionId: 'DSP-2026-00120', company: '현대모비스', department: 'DX실', date: '2026-03-18', assets: 3, status: '완료' as string,
+            reports: [
+              { type: 'CoD', title: '데이터 폐기 인증서', count: 3, ready: true },
+              { type: 'transport', title: '보안운송 이력서', count: 1, ready: true },
+              { type: 'esg', title: 'ESG 성과 리포트', count: 1, ready: true },
+              { type: 'asset', title: '자산처리 결과서', count: 1, ready: true },
+            ]},
+          { emissionId: 'DSP-2026-00118', company: '삼성SDS', department: 'IT보안팀', date: '2026-03-15', assets: 18, status: '완료' as string,
+            reports: [
+              { type: 'CoD', title: '데이터 폐기 인증서', count: 18, ready: true },
+              { type: 'transport', title: '보안운송 이력서', count: 2, ready: true },
+              { type: 'esg', title: 'ESG 성과 리포트', count: 1, ready: true },
+              { type: 'asset', title: '자산처리 결과서', count: 1, ready: true },
+            ]},
+          { emissionId: 'DSP-2026-00105', company: 'LG전자', department: '인프라운영팀', date: '2026-02-28', assets: 8, status: '완료' as string,
+            reports: [
+              { type: 'CoD', title: '데이터 폐기 인증서', count: 8, ready: true },
+              { type: 'transport', title: '보안운송 이력서', count: 1, ready: true },
+              { type: 'esg', title: 'ESG 성과 리포트', count: 1, ready: true },
+              { type: 'asset', title: '자산처리 결과서', count: 1, ready: true },
+            ]},
+        ];
+        const reportEmissions = userRole === 'admin' ? reportEmissionsAll : reportEmissionsAll.filter(e => e.company === userCompany);
+        const selectedReportEmission = reportEmissions.find(e => e.emissionId === selectedReportId);
+
         return (
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
@@ -4386,144 +4939,180 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.98 }}
             className="space-y-6 pb-20"
           >
-            {/* Page Title */}
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                <FileText className="w-8 h-8 text-indigo-600" />
-                리포트 센터
-              </h1>
-              <p className="text-slate-500 mt-1">자산 관리 및 ESG 성과 리포트를 확인하고 다운로드할 수 있습니다.</p>
+            {/* 헤더 */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                  <FileText className="w-8 h-8 text-indigo-600" />
+                  리포트 센터
+                </h1>
+                <p className="text-slate-500 mt-1">
+                  {userRole === 'admin' ? '전체 배출처의 리포트를 통합 관리합니다.' : `${userCompany}의 배출건별 리포트를 확인하고 다운로드합니다.`}
+                </p>
+              </div>
+              {/* 역할 표시 */}
+              <div className="flex items-center gap-2">
+                {userRole === 'admin' && (
+                  <span className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-xl text-xs font-bold flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3" /> 관리자
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 요약 카드 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                {
-                  title: 'ESG 성과 리포트',
-                  date: '2026년 3월',
-                  desc: '탄소 저감 및 자원 순환 기여도 요약',
-                  icon: Leaf,
-                  color: 'emerald',
-                  preview: [
-                    { label: '탄소 절감량 (누적)', value: '9,800 kg CO₂e' },
-                    { label: '매립 회피량 (금월)', value: '1,400 kg' },
-                    { label: '자원순환율', value: '90%' },
-                    { label: '재사용 장비 수', value: '2,016대' },
-                    { label: '리퍼 평균 수명연장', value: '2.8년' },
-                  ],
-                },
-                {
-                  title: '자산 폐기 증명서',
-                  date: '2026년 3월',
-                  desc: '데이터 파기 및 물리적 폐기 공정 완료 증명',
-                  icon: ShieldCheck,
-                  color: 'rose',
-                  preview: [
-                    { label: '총 폐기 처리 건수', value: '156건' },
-                    { label: '소프트웨어 삭제', value: '72건 (NIST 800-88)' },
-                    { label: '디가우징', value: '24건' },
-                    { label: '물리파괴', value: '48건 (DoD 5220.22-M)' },
-                    { label: '인증서 발급 완료', value: '148건 (CoD)' },
-                  ],
-                },
-                {
-                  title: 'IT자산 인벤토리 현황',
-                  date: '2026년 3월',
-                  desc: '현재 보유 및 처리 중인 자산 상세 내역',
-                  icon: Monitor,
-                  color: 'blue',
-                  preview: [
-                    { label: '총 관리 자산', value: '4,460대' },
-                    { label: 'PC / 노트북', value: '1,840대' },
-                    { label: '서버', value: '920대' },
-                    { label: '모바일', value: '1,200대' },
-                    { label: '네트워크 장비', value: '500대' },
-                  ],
-                },
-                {
-                  title: '연간 자원 순환 통계',
-                  date: '2025년 연간',
-                  desc: '지난 1년간의 자원 순환 트렌드 분석',
-                  icon: BarChart3,
-                  color: 'indigo',
-                  preview: [
-                    { label: '연간 총 처리량', value: '3,180대' },
-                    { label: '재사용 비율', value: '45%' },
-                    { label: '부품회수 비율', value: '25%' },
-                    { label: '잔존가치 총 회수', value: '₩3.6억' },
-                    { label: '원자재 회수 (구리)', value: '1,085 kg' },
-                  ],
-                },
-                {
-                  title: '보안운송 이력 리포트',
-                  date: '2026년 3월',
-                  desc: '보안운송 수행 이력 및 Chain of Custody 기록',
-                  icon: Truck,
-                  color: 'slate',
-                  preview: [
-                    { label: '총 운송 건수', value: '89건' },
-                    { label: '평균 운송시간', value: '2시간 35분' },
-                    { label: '경로이탈 발생', value: '0건' },
-                    { label: '봉인 이상', value: '0건' },
-                    { label: '정합성 일치율', value: '99.2%' },
-                  ],
-                },
-                {
-                  title: '비용 절감 분석 리포트',
-                  date: '2026년 Q1',
-                  desc: '기존 방식 대비 플랫폼 이용 시 비용 절감 분석',
-                  icon: TrendingDown,
-                  color: 'amber',
-                  preview: [
-                    { label: '기존 처리 비용', value: '₩1,200만/건' },
-                    { label: 'K-ITAD 비용', value: '₩850만/건' },
-                    { label: '절감률', value: '29.2%' },
-                    { label: '분기 총 절감액', value: '₩3,150만' },
-                    { label: '재판매 수익', value: '₩7,500만' },
-                  ],
-                },
-              ].map((report, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
-                  <div className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
-                        report.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
-                        report.color === 'rose' ? "bg-rose-50 text-rose-600" :
-                        report.color === 'blue' ? "bg-blue-50 text-blue-600" :
-                        report.color === 'indigo' ? "bg-indigo-50 text-indigo-600" :
-                        report.color === 'amber' ? "bg-amber-50 text-amber-600" :
-                        "bg-slate-100 text-slate-600"
-                      )}>
-                        <report.icon className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-slate-900">{report.title}</h3>
-                        <p className="text-xs text-slate-400 mt-0.5">{report.date}</p>
-                        <p className="text-sm text-slate-500 mt-2">{report.desc}</p>
-                      </div>
+                { label: '배출요청건', value: `${reportEmissions.length}건`, icon: ClipboardList, color: 'indigo' },
+                { label: '발급 완료 리포트', value: `${reportEmissions.reduce((s, e) => s + e.reports.filter(r => r.ready).length, 0)}건`, icon: CheckCircle2, color: 'emerald' },
+                { label: '발급 대기', value: `${reportEmissions.reduce((s, e) => s + e.reports.filter(r => !r.ready).length, 0)}건`, icon: Clock, color: 'amber' },
+                { label: 'CoD 인증서', value: `${reportEmissions.reduce((s, e) => s + (e.reports.find(r => r.type === 'CoD')?.count || 0), 0)}건`, icon: FileBadge, color: 'blue' },
+              ].map((card, i) => (
+                <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center",
+                      card.color === 'indigo' ? "bg-indigo-50 text-indigo-600" :
+                      card.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
+                      card.color === 'amber' ? "bg-amber-50 text-amber-600" :
+                      "bg-blue-50 text-blue-600"
+                    )}>
+                      <card.icon className="w-5 h-5" />
                     </div>
-
-                    {/* 미리보기 콘텐츠 */}
-                    <div className="mt-4 bg-slate-50 rounded-xl p-4 space-y-2.5">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">미리보기</p>
-                      {report.preview.map((item, j) => (
-                        <div key={j} className="flex justify-between text-sm">
-                          <span className="text-slate-500">{item.label}</span>
-                          <span className="font-bold text-slate-900">{item.value}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-4 flex gap-2">
-                      <button className="flex-1 py-2.5 text-sm font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all flex items-center justify-center gap-2">
-                        <Eye className="w-4 h-4" /> 상세 보기
-                      </button>
-                      <button className="flex-1 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
-                        <Download className="w-4 h-4" /> 다운로드
-                      </button>
-                    </div>
+                    <span className="text-sm font-bold text-slate-500">{card.label}</span>
                   </div>
+                  <p className="text-2xl font-black text-slate-900">{card.value}</p>
                 </div>
               ))}
+            </div>
+
+            {/* 배출건 목록 + 리포트 상세 */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* 좌: 배출건 목록 */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-100 bg-slate-50">
+                  <h3 className="text-sm font-bold text-slate-700">{userRole === 'admin' ? '전체 배출건' : '내 배출건'}</h3>
+                </div>
+                <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
+                  {reportEmissions.map(e => (
+                    <button key={e.emissionId}
+                      onClick={() => setSelectedReportId(e.emissionId)}
+                      className={cn("w-full text-left p-4 transition-colors",
+                        selectedReportId === e.emissionId ? "bg-indigo-50 border-l-4 border-indigo-500" : "hover:bg-slate-50 border-l-4 border-transparent"
+                      )}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-bold text-slate-900">{e.emissionId}</span>
+                        <span className={cn("px-2 py-0.5 rounded-md text-[10px] font-bold",
+                          e.status === '완료' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                        )}>{e.status}</span>
+                      </div>
+                      {userRole === 'admin' && <p className="text-xs font-medium text-slate-600">{e.company}</p>}
+                      <p className="text-[10px] text-slate-400">{e.department} · {e.date} · {e.assets}건</p>
+                      <div className="flex gap-1 mt-2">
+                        {e.reports.map((r, ri) => (
+                          <span key={ri} className={cn("w-2 h-2 rounded-full", r.ready ? "bg-emerald-400" : "bg-slate-200")} />
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 우: 선택된 배출건의 리포트 목록 */}
+              <div className="lg:col-span-2 space-y-4">
+                {selectedReportEmission ? (
+                  <>
+                    {/* 배출건 요약 */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-900">{selectedReportEmission.emissionId}</h3>
+                          <p className="text-sm text-slate-500 mt-0.5">
+                            {selectedReportEmission.company} / {selectedReportEmission.department} · {selectedReportEmission.date} · 자산 {selectedReportEmission.assets}건
+                          </p>
+                        </div>
+                        <span className={cn("px-3 py-1 rounded-lg text-xs font-bold",
+                          selectedReportEmission.status === '완료' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                        )}>{selectedReportEmission.status}</span>
+                      </div>
+                    </div>
+
+                    {/* 리포트 카드 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedReportEmission.reports.map((r, ri) => {
+                        const iconMap: Record<string, any> = { CoD: ShieldCheck, transport: Truck, esg: Leaf, asset: Cog };
+                        const colorMap: Record<string, string> = { CoD: 'rose', transport: 'slate', esg: 'emerald', asset: 'orange' };
+                        const ReportIcon = iconMap[r.type] || FileText;
+                        const color = colorMap[r.type] || 'indigo';
+                        return (
+                          <div key={ri} className={cn("bg-white rounded-2xl border shadow-sm overflow-hidden transition-all",
+                            r.ready ? "border-slate-200 hover:shadow-md" : "border-dashed border-slate-300 opacity-60"
+                          )}>
+                            <div className="p-5">
+                              <div className="flex items-start gap-3 mb-4">
+                                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center",
+                                  color === 'rose' ? "bg-rose-50 text-rose-600" :
+                                  color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
+                                  color === 'orange' ? "bg-orange-50 text-orange-600" :
+                                  "bg-slate-100 text-slate-600"
+                                )}>
+                                  <ReportIcon className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="font-bold text-slate-900 text-sm">{r.title}</h4>
+                                  <p className="text-[10px] text-slate-400 mt-0.5">
+                                    {r.ready ? `${r.count}건 발급 완료` : '발급 대기중'}
+                                  </p>
+                                </div>
+                                {r.ready ? (
+                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[10px] font-bold">발급완료</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[10px] font-bold">대기</span>
+                                )}
+                              </div>
+                              {r.ready ? (
+                                <div className="flex gap-2">
+                                  <button className="flex-1 py-2 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all flex items-center justify-center gap-1">
+                                    <Eye className="w-3.5 h-3.5" /> 보기
+                                  </button>
+                                  <button className="flex-1 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all flex items-center justify-center gap-1 shadow-lg shadow-indigo-600/20">
+                                    <Download className="w-3.5 h-3.5" /> 다운로드
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="py-2 text-center text-xs text-slate-400 bg-slate-50 rounded-xl">
+                                  처리 완료 후 자동 발급됩니다
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* 일괄 다운로드 */}
+                    {selectedReportEmission.reports.some(r => r.ready) && (
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Download className="w-5 h-5 text-indigo-600" />
+                          <div>
+                            <p className="text-sm font-bold text-indigo-900">전체 리포트 일괄 다운로드</p>
+                            <p className="text-[10px] text-indigo-600">발급 완료된 {selectedReportEmission.reports.filter(r => r.ready).length}건의 리포트를 ZIP으로 다운로드합니다.</p>
+                          </div>
+                        </div>
+                        <button className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20">
+                          ZIP 다운로드
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center py-24 text-slate-400">
+                    <FileText className="w-12 h-12 mb-4 text-slate-300" />
+                    <p className="text-sm font-bold">좌측에서 배출요청건을 선택하면</p>
+                    <p className="text-sm">해당 건의 리포트 목록이 표시됩니다.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
         );
