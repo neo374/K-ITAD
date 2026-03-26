@@ -3079,7 +3079,8 @@ export default function App() {
       }
 
 
-      case 'disposal':
+      case 'disposal': {
+        const isDisposalReadOnly = userRole === 'emitter' || userRole === 'government';
         return (
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
@@ -3093,7 +3094,9 @@ export default function App() {
                 <ShieldCheck className="w-8 h-8 text-rose-600" />
                 데이터 폐기
               </h1>
-              <p className="text-slate-500 mt-1">배출요청건별 데이터 폐기 작업을 수행하고 결과를 등록합니다.</p>
+              <p className="text-slate-500 mt-1">
+                {isDisposalReadOnly ? '배출신청건별 데이터 폐기 현황을 조회합니다.' : '배출요청건별 데이터 폐기 작업을 수행하고 결과를 등록합니다.'}
+              </p>
             </div>
 
             {/* ===== 상단 요약 카드 4개 ===== */}
@@ -3133,8 +3136,8 @@ export default function App() {
               <div className="flex border-b border-slate-200">
                 {[
                   { key: 'status' as const, label: '작업 현황', icon: ClipboardList },
-                  { key: 'work' as const, label: '작업 수행 / 결과 등록', icon: PenTool },
-                  { key: 'verify' as const, label: '검증 / 인증서', icon: ShieldCheck },
+                  ...(!isDisposalReadOnly ? [{ key: 'work' as const, label: '작업 수행 / 결과 등록', icon: PenTool }] : []),
+                  ...(!isDisposalReadOnly ? [{ key: 'verify' as const, label: '검증 / 인증서', icon: ShieldCheck }] : []),
                   { key: 'stats' as const, label: '통계 · 분석', icon: BarChart3 },
                 ].map(tab => (
                   <button
@@ -3169,7 +3172,7 @@ export default function App() {
                               <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산수</th>
                               <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">진행률</th>
                               <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
-                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">작업</th>
+                              {!isDisposalReadOnly && <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">작업</th>}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -3208,14 +3211,16 @@ export default function App() {
                                       "bg-slate-100 text-slate-600"
                                     )}>{rate === 100 ? '완료' : g.inProgressCount > 0 ? '작업중' : '대기'}</span>
                                   </td>
-                                  <td className="px-4 py-3">
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); setSelectedEmissionForDisposal(g.emissionId); setDisposalTab('work'); setDisposalCheckedAssets([]); }}
-                                      className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-100 transition-all"
-                                    >
-                                      결과 등록
-                                    </button>
-                                  </td>
+                                  {!isDisposalReadOnly && (
+                                    <td className="px-4 py-3">
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setSelectedEmissionForDisposal(g.emissionId); setDisposalTab('work'); setDisposalCheckedAssets([]); }}
+                                        className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-100 transition-all"
+                                      >
+                                        결과 등록
+                                      </button>
+                                    </td>
+                                  )}
                                 </tr>
                               );
                             })}
@@ -3747,6 +3752,7 @@ export default function App() {
             </div>
           </motion.div>
         );
+      }
 
       case 'processing':
         return (
@@ -4357,8 +4363,162 @@ export default function App() {
             </motion.div>
         );
 
+      case 'settlement': {
+        const settlementCenterOptions = ['경기남부센터', '서울센터', '부산센터'];
+        const settlementData = [
+          { id: 'STL-001', emissionId: 'DSP-2026-00123', company: '리맨(유통)', type: '매출', amount: 2850000, date: '2026-03-15', status: '정산완료', items: '노트북 외 3건' },
+          { id: 'STL-002', emissionId: 'DSP-2026-00120', company: '미래시안', type: '매입', amount: -1200000, date: '2026-03-18', status: '정산완료', items: '서버 외 2건' },
+          { id: 'STL-003', emissionId: 'DSP-2026-00118', company: '한민', type: '매출', amount: 4800000, date: '2026-03-20', status: '정산대기', items: '데스크탑 외 8건' },
+          { id: 'STL-004', emissionId: 'DSP-2026-00124', company: '리맨(유통)', type: '매출', amount: 1500000, date: '2026-03-22', status: '정산대기', items: '모니터 외 5건' },
+          { id: 'STL-005', emissionId: 'DSP-2026-00105', company: '미래시안', type: '매입', amount: -950000, date: '2026-03-25', status: '미정산', items: '프린터 외 1건' },
+          { id: 'STL-006', emissionId: 'DSP-2026-00123', company: '한민', type: '매출', amount: 3200000, date: '2026-03-10', status: '정산완료', items: '네트워크장비 외 4건' },
+        ];
+        const settlementFiltered = (userRole === 'admin' || userRole === 'processor') ? settlementData : settlementData.filter(s => s.company === userCompany);
+        const totalRevenue = settlementFiltered.filter(s => s.amount > 0).reduce((a, s) => a + s.amount, 0);
+        const totalExpense = settlementFiltered.filter(s => s.amount < 0).reduce((a, s) => a + s.amount, 0);
+        const totalBalance = totalRevenue + totalExpense;
+        const canIssueTaxInvoice = userRole === 'processor' || (totalBalance > 0 && (userRole === 'emitter' || userRole === 'transporter'));
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="space-y-6 pb-20"
+          >
+            {/* 헤더 */}
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                <CircleDollarSign className="w-8 h-8 text-violet-600" />
+                정산 관리
+              </h1>
+              <p className="text-slate-500 mt-1">
+                {userRole === 'admin' ? '전체 정산 내역을 조회합니다.' :
+                 userRole === 'processor' ? '센터별 매입/매출을 조회하고 세금계산서를 발급합니다.' :
+                 '내 매입/매출 내역을 조회합니다.'}
+              </p>
+            </div>
+
+            {/* 처리사: 센터 선택 드롭다운 */}
+            {userRole === 'processor' && (
+              <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 flex items-center gap-4">
+                <span className="text-sm font-bold text-violet-700">센터 선택</span>
+                <select className="px-4 py-2 bg-white border border-violet-200 rounded-xl text-sm font-bold text-violet-700 outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-500">
+                  {settlementCenterOptions.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* 요약 카드 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: '총 매출', value: `₩${(totalRevenue / 10000).toFixed(0)}만`, sub: `${settlementFiltered.filter(s => s.amount > 0).length}건`, icon: TrendingUp, color: 'blue' },
+                { label: '총 매입', value: `₩${(Math.abs(totalExpense) / 10000).toFixed(0)}만`, sub: `${settlementFiltered.filter(s => s.amount < 0).length}건`, icon: TrendingDown, color: 'rose' },
+                { label: '순이익', value: `₩${(totalBalance / 10000).toFixed(0)}만`, sub: totalBalance >= 0 ? '흑자' : '적자', icon: CircleDollarSign, color: totalBalance >= 0 ? 'emerald' : 'rose' },
+                { label: '정산 건수', value: `${settlementFiltered.length}건`, sub: `미정산 ${settlementFiltered.filter(s => s.status === '미정산').length}건`, icon: ClipboardList, color: 'slate' },
+              ].map((card, i) => (
+                <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center",
+                      card.color === 'blue' ? "bg-blue-50 text-blue-600" :
+                      card.color === 'rose' ? "bg-rose-50 text-rose-600" :
+                      card.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
+                      "bg-slate-100 text-slate-600"
+                    )}>
+                      <card.icon className="w-5 h-5" />
+                    </div>
+                    <span className="text-sm font-bold text-slate-500">{card.label}</span>
+                  </div>
+                  <p className="text-2xl font-black text-slate-900">{card.value}</p>
+                  <p className="text-xs font-bold text-slate-400 mt-1">{card.sub}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* 정산 내역 테이블 */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-900">정산 내역</h3>
+                <div className="flex items-center gap-2">
+                  <select className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none">
+                    <option>전체 기간</option>
+                    <option>최근 1개월</option>
+                    <option>최근 3개월</option>
+                    <option>최근 6개월</option>
+                  </select>
+                  <select className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none">
+                    <option>전체 유형</option>
+                    <option>매출</option>
+                    <option>매입</option>
+                  </select>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산번호</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출신청번호</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">거래처명</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">유형</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">금액</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">항목</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산일</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
+                      {canIssueTaxInvoice && <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">세금계산서</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {settlementFiltered.map(s => (
+                      <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 text-sm font-bold text-slate-900">{s.id}</td>
+                        <td className="px-4 py-3 text-sm text-violet-600 font-bold">{s.emissionId}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-700">{s.company}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                            s.type === '매출' ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"
+                          )}>{s.type}</span>
+                        </td>
+                        <td className={cn("px-4 py-3 text-sm font-bold", s.amount >= 0 ? "text-blue-600" : "text-rose-600")}>
+                          {s.amount >= 0 ? '+' : ''}{s.amount.toLocaleString()}원
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{s.items}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{s.date}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                            s.status === '정산완료' ? "bg-emerald-100 text-emerald-700" :
+                            s.status === '정산대기' ? "bg-amber-100 text-amber-700" :
+                            "bg-slate-100 text-slate-600"
+                          )}>{s.status}</span>
+                        </td>
+                        {canIssueTaxInvoice && (
+                          <td className="px-4 py-3">
+                            {s.amount > 0 ? (
+                              <button
+                                onClick={() => alert(`${s.id} 세금계산서 발급 요청`)}
+                                className="px-3 py-1.5 bg-violet-50 text-violet-600 rounded-lg text-xs font-bold hover:bg-violet-100 transition-all flex items-center gap-1"
+                              >
+                                <FileText className="w-3 h-3" /> 발급
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-400">—</span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        );
+      }
+
       case 'circulation':
-        const circStatOptions = [
+        const circStatOptionsAll = [
           { key: 'processing', label: '처리량 추이', desc: '월별 처리 건수 및 누적' },
           { key: 'carbon', label: '탄소 절감량', desc: 'CO₂e 절감 추이' },
           { key: 'landfill', label: '매립 회피량', desc: '매립 회피 중량' },
@@ -4367,6 +4527,9 @@ export default function App() {
           { key: 'material', label: '원자재 회수', desc: '소재별 회수량' },
           { key: 'lifespan', label: '수명 연장', desc: '리퍼 사용 연수' },
         ];
+        const circStatOptions = userRole === 'emitter'
+          ? circStatOptionsAll.filter(o => o.key !== 'economic' && o.key !== 'material')
+          : circStatOptionsAll;
         const circPeriodOptions = ['최근 3개월', '최근 6개월', '최근 1년'];
         const circSelectedStat = selectedCircStat;
         const circPeriod = selectedCircPeriod;
@@ -4380,7 +4543,7 @@ export default function App() {
           { emissionId: 'DSP-2026-00105', company: 'LG전자', department: '인프라운영팀', totalAssets: 8, reuse: 2, recycle: 4, waste: 2, inProgress: 0, co2Saved: 2800, recoveryValue: 1950000 },
         ];
         // 역할에 따라 필터링: 배출처는 자기 데이터만, 관리자는 전체
-        const circEmissionSummary = userRole === 'admin' ? circEmissionSummaryAll : circEmissionSummaryAll.filter(e => e.company === userCompany);
+        const circEmissionSummary = (userRole === 'admin' || userRole === 'processor' || userRole === 'government') ? circEmissionSummaryAll : circEmissionSummaryAll.filter(e => e.company === userCompany);
         const circTotalAssets = circEmissionSummary.reduce((s, e) => s + e.totalAssets, 0);
         const circTotalCo2 = circEmissionSummary.reduce((s, e) => s + e.co2Saved, 0);
         const circTotalRecovery = circEmissionSummary.reduce((s, e) => s + e.recoveryValue, 0);
@@ -4435,12 +4598,12 @@ export default function App() {
             )}
 
             {/* 요약 카드 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className={cn("grid gap-4", userRole === 'emitter' ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2 md:grid-cols-4")}>
               {[
                 { label: '자원순환율', value: `${circCirculationRate}%`, sub: '(재사용+재활용) ÷ 총 처리', icon: Recycle, color: 'emerald' },
                 { label: '탄소 절감량', value: `${circTotalCo2 > 1000 ? `${(circTotalCo2 / 1000).toFixed(1)}t` : `${circTotalCo2}kg`}`, sub: 'CO₂e 누적 절감', icon: Leaf, color: 'emerald' },
                 { label: '처리 자산', value: `${circTotalAssets}건`, sub: userRole === 'admin' ? `${circEmissionSummary.length}개 배출처` : `${circEmissionSummary.length}건의 배출요청`, icon: Database, color: 'blue' },
-                { label: '잔존가치 회수', value: `₩${(circTotalRecovery / 10000).toFixed(0)}만`, sub: '재판매 + 원료 수익', icon: TrendingUp, color: 'indigo' },
+                ...(userRole !== 'emitter' ? [{ label: '잔존가치 회수', value: `₩${(circTotalRecovery / 10000).toFixed(0)}만`, sub: '재판매 + 원료 수익', icon: TrendingUp, color: 'indigo' }] : []),
               ].map((card, i) => (
                 <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-3 mb-2">
@@ -4494,7 +4657,7 @@ export default function App() {
                         <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">재활용</th>
                         <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">폐기</th>
                         <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">CO₂ 절감</th>
-                        <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">회수가치</th>
+                        {userRole !== 'emitter' && <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">회수가치</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -4510,7 +4673,7 @@ export default function App() {
                           <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[11px] font-bold">{e.recycle}</span></td>
                           <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-md text-[11px] font-bold">{e.waste}</span></td>
                           <td className="px-3 py-2.5 text-sm text-emerald-600 font-bold">{e.co2Saved > 0 ? `${(e.co2Saved / 1000).toFixed(1)}t` : '—'}</td>
-                          <td className="px-3 py-2.5 text-sm font-bold text-slate-700">{e.recoveryValue > 0 ? `₩${(e.recoveryValue / 10000).toFixed(0)}만` : '—'}</td>
+                          {userRole !== 'emitter' && <td className="px-3 py-2.5 text-sm font-bold text-slate-700">{e.recoveryValue > 0 ? `₩${(e.recoveryValue / 10000).toFixed(0)}만` : '—'}</td>}
                         </tr>
                       ))}
                     </tbody>
@@ -4523,7 +4686,7 @@ export default function App() {
                           <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded-md text-[11px] font-black">{circTotalRecycle}</span></td>
                           <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-rose-200 text-rose-800 rounded-md text-[11px] font-black">{circTotalWaste}</span></td>
                           <td className="px-3 py-2.5 text-sm text-emerald-700 font-black">{circTotalCo2 > 1000 ? `${(circTotalCo2 / 1000).toFixed(1)}t` : `${circTotalCo2}kg`}</td>
-                          <td className="px-3 py-2.5 text-sm font-black text-slate-900">₩{(circTotalRecovery / 10000).toFixed(0)}만</td>
+                          {userRole !== 'emitter' && <td className="px-3 py-2.5 text-sm font-black text-slate-900">₩{(circTotalRecovery / 10000).toFixed(0)}만</td>}
                         </tr>
                       </tfoot>
                     )}
@@ -4666,6 +4829,59 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {/* ESG 성과 리포트 - emitter, processor 역할에만 노출 */}
+            {(userRole === 'emitter' || userRole === 'processor') && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                      <Leaf className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">ESG 성과 리포트</h3>
+                      <p className="text-xs text-slate-500">자원순환 활동에 따른 ESG 성과를 요약합니다.</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6 space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-emerald-50 rounded-xl p-4 space-y-2">
+                      <span className="text-xs font-bold text-emerald-600">Environmental</span>
+                      <p className="text-2xl font-black text-emerald-700">{circTotalCo2 > 1000 ? `${(circTotalCo2 / 1000).toFixed(1)}t` : `${circTotalCo2}kg`}</p>
+                      <p className="text-xs text-emerald-600">CO₂e 탄소 절감량</p>
+                      <div className="pt-2 border-t border-emerald-200 text-xs text-emerald-700">
+                        <p>자원순환율 {circCirculationRate}% 달성</p>
+                        <p>매립 회피 자산 {circTotalReuse + circTotalRecycle}건</p>
+                      </div>
+                    </div>
+                    <div className="bg-blue-50 rounded-xl p-4 space-y-2">
+                      <span className="text-xs font-bold text-blue-600">Social</span>
+                      <p className="text-2xl font-black text-blue-700">{circTotalReuse}건</p>
+                      <p className="text-xs text-blue-600">재사용 기기 (디지털 격차 해소)</p>
+                      <div className="pt-2 border-t border-blue-200 text-xs text-blue-700">
+                        <p>데이터 폐기 인증 100%</p>
+                        <p>정보보안 가이드라인 준수</p>
+                      </div>
+                    </div>
+                    <div className="bg-indigo-50 rounded-xl p-4 space-y-2">
+                      <span className="text-xs font-bold text-indigo-600">Governance</span>
+                      <p className="text-2xl font-black text-indigo-700">{circTotalAssets}건</p>
+                      <p className="text-xs text-indigo-600">투명한 자산 처리 이력</p>
+                      <div className="pt-2 border-t border-indigo-200 text-xs text-indigo-700">
+                        <p>블록체인 기반 이력 추적</p>
+                        <p>올바로 시스템 연동 완료</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-3">
+                    <button className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-all flex items-center gap-2">
+                      <Download className="w-4 h-4" /> ESG 리포트 다운로드 (PDF)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         );
       case 'allbaro':
