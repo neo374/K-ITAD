@@ -321,6 +321,8 @@ export default function App() {
   });
 
   // Transport State
+  const [selectedSettlement, setSelectedSettlement] = useState<string | null>(null);
+  const [infoTab, setInfoTab] = useState('회사정보');
   const [transportTab, setTransportTab] = useState<'dispatch' | 'integrity' | 'info' | 'monitoring'>('dispatch');
   const [selectedTransport, setSelectedTransport] = useState<string | null>('TRN-2026-00051');
   const [transportFilter, setTransportFilter] = useState('전체');
@@ -1246,7 +1248,7 @@ export default function App() {
                       {step === 2 && "배출 자산"}
                       {step === 3 && "데이터 삭제"}
                       {step === 4 && "수거 정보"}
-                      {step === 5 && "처리 방식"}
+                      {step === 5 && "예상금액"}
                       {step === 6 && "확인 및 제출"}
                     </span>
                   </div>
@@ -2166,53 +2168,7 @@ export default function App() {
               ))}
             </div>
 
-            {/* Summary cards — shown when a transport is selected and not on dispatch tab */}
-            {currentTransportData && transportTab !== 'dispatch' && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {[
-                  {
-                    label: '총 자산수',
-                    value: `${totalAssets}대`,
-                    sub: `일치 ${matchedAssets} / 불일치 ${totalAssets - matchedAssets}`,
-                    icon: ClipboardList,
-                    color: 'indigo',
-                  },
-                  {
-                    label: '정합성 완료율',
-                    value: `${integrityRate}%`,
-                    sub: integrityRate === 100 ? '전체 일치' : `불일치 ${totalAssets - matchedAssets}건 포함`,
-                    icon: CheckCircle2,
-                    color: integrityRate === 100 ? 'emerald' : 'amber',
-                  },
-                  {
-                    label: '운송상태',
-                    value: transportStatus,
-                    sub: currentTransportData.sealStatus === '정상' ? '봉인 정상' : '봉인 이상!',
-                    icon: Truck,
-                    color: transportStatus === '완료' ? 'emerald' : transportStatus === '운송중' ? 'indigo' : 'slate',
-                  },
-                ].map((card, i) => (
-                  <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div
-                        className={cn(
-                          'w-10 h-10 rounded-xl flex items-center justify-center',
-                          card.color === 'indigo' ? 'bg-indigo-50 text-indigo-600' :
-                          card.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
-                          card.color === 'amber' ? 'bg-amber-50 text-amber-600' :
-                          'bg-slate-50 text-slate-600'
-                        )}
-                      >
-                        <card.icon className="w-5 h-5" />
-                      </div>
-                      <span className="text-sm font-bold text-slate-500">{card.label}</span>
-                    </div>
-                    <p className="text-2xl font-black text-slate-900">{card.value}</p>
-                    <p className="text-xs font-bold text-slate-400 mt-1">{card.sub}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Summary cards moved inside info tab */}
 
             {/* =================== TAB: 배차 관리 (CALENDAR for transporter, read-only table for processor/admin) =================== */}
             {transportTab === 'dispatch' && (
@@ -2220,8 +2176,8 @@ export default function App() {
                 {userRole === 'transporter' ? (
                   /* ===== TRANSPORTER: Calendar Drag & Drop ===== */
                   <div className="flex gap-4" style={{ minHeight: 520 }}>
-                    {/* LEFT PANEL: Request list (40%) */}
-                    <div className="w-[40%] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                    {/* LEFT PANEL: Request list (25%) */}
+                    <div className="w-[25%] min-w-[240px] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                       <div className="p-4 border-b border-slate-100">
                         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                           <ClipboardList className="w-4 h-4 text-indigo-600" />
@@ -2300,32 +2256,45 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* RIGHT PANEL: Weekly Calendar (60%) */}
-                    <div className="w-[60%] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                    {/* RIGHT PANEL: Weekly Calendar (75%) */}
+                    <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                       <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                           <ClipboardList className="w-4 h-4 text-indigo-600" />
                           주간 배차 캘린더
                         </h2>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setCalendarWeekOffset(calendarWeekOffset - 1)}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                          >
-                            <ChevronLeft className="w-4 h-4 text-slate-500" />
-                          </button>
-                          <button
-                            onClick={() => setCalendarWeekOffset(0)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
-                          >
-                            이번 주
-                          </button>
-                          <button
-                            onClick={() => setCalendarWeekOffset(calendarWeekOffset + 1)}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                          >
-                            <ChevronRight className="w-4 h-4 text-slate-500" />
-                          </button>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setCalendarWeekOffset(calendarWeekOffset - 1)}
+                              className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                            >
+                              <ChevronLeft className="w-4 h-4 text-slate-500" />
+                            </button>
+                            <button
+                              onClick={() => setCalendarWeekOffset(0)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            >
+                              이번 주
+                            </button>
+                            <button
+                              onClick={() => setCalendarWeekOffset(calendarWeekOffset + 1)}
+                              className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                            >
+                              <ChevronRight className="w-4 h-4 text-slate-500" />
+                            </button>
+                          </div>
+                          {Object.keys(calendarAssignments).length > 0 && (
+                            <button
+                              onClick={() => {
+                                alert(`${Object.keys(calendarAssignments).length}건 배차가 확정되었습니다.`);
+                              }}
+                              className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all shadow-sm flex items-center gap-1.5"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              저장
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="flex-1 overflow-auto">
@@ -2345,7 +2314,7 @@ export default function App() {
                           <tbody>
                             {calendarDrivers.map(driver => (
                               <tr key={driver.name}>
-                                <td className="sticky left-0 z-10 bg-white px-3 py-3 border-b border-r border-slate-100">
+                                <td className="sticky left-0 z-10 bg-white px-3 py-4 border-b border-r border-slate-100">
                                   <p className="text-sm font-bold text-slate-900">{driver.name}</p>
                                   <p className="text-[10px] text-slate-400 font-mono">{driver.vehicle}</p>
                                 </td>
@@ -2356,7 +2325,7 @@ export default function App() {
                                     <td
                                       key={d.key}
                                       className={cn(
-                                        'px-1.5 py-1.5 border-b border-slate-100 text-center align-top transition-colors min-h-[60px]',
+                                        'px-1.5 py-2.5 border-b border-slate-100 text-center align-top transition-colors min-h-[72px]',
                                         !assignment ? 'hover:bg-indigo-50/30' : ''
                                       )}
                                       onDragOver={(ev) => {
@@ -2401,19 +2370,11 @@ export default function App() {
                                             ×
                                           </button>
                                           <p className="text-[10px] font-bold text-indigo-700 truncate">{assignment.requestId}</p>
-                                          <p className="text-[10px] text-slate-600 truncate">{assignment.company}</p>
-                                          <button
-                                            onClick={() => {
-                                              setSelectedDispatch(null);
-                                              setTransportTab('monitoring');
-                                            }}
-                                            className="mt-1.5 w-full px-2 py-1 bg-indigo-600 text-white rounded-md text-[10px] font-bold hover:bg-indigo-700 transition-colors"
-                                          >
-                                            배차완료
-                                          </button>
+                                          <p className="text-[10px] text-slate-500 truncate">{assignment.company}</p>
+                                          <p className="text-[10px] text-slate-400 truncate mt-0.5">{assignment.assetSummary}</p>
                                         </div>
                                       ) : (
-                                        <div className="h-[56px] rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center">
+                                        <div className="h-[64px] rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center">
                                           <span className="text-[10px] text-slate-300">드롭</span>
                                         </div>
                                       )}
@@ -2521,35 +2482,59 @@ export default function App() {
             {/* =================== TAB: 운송 정보 (emitter + admin) =================== */}
             {transportTab === 'info' && (
               <>
+                {/* 배출건 선택 (상단 고정) */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">배출건 선택</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {transportMonitorData.transports.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => setSelectedTransport(t.id)}
+                        className={cn(
+                          "p-3 border rounded-xl text-left transition-all flex items-center justify-between",
+                          selectedTransport === t.id
+                            ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20"
+                            : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
+                        )}
+                      >
+                        <div>
+                          <span className="text-sm font-bold text-slate-900">{t.emissionId || t.id}</span>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{t.company} · {t.driver}</p>
+                        </div>
+                        <span className={cn(
+                          'px-2 py-0.5 rounded-md text-[10px] font-bold',
+                          t.status === '운송중' ? 'bg-blue-100 text-blue-700' :
+                          t.status === '완료' ? 'bg-emerald-100 text-emerald-700' :
+                          'bg-slate-100 text-slate-500'
+                        )}>
+                          {t.status}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {!currentTransportData ? (
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
-                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-bold">운송 건을 선택하면 운송 정보가 표시됩니다.</p>
-                    {/* Transport list for selection */}
-                    <div className="mt-6 max-w-lg mx-auto space-y-2">
-                      {transportMonitorData.transports.map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => setSelectedTransport(t.id)}
-                          className="w-full p-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-xl text-left transition-all flex items-center justify-between"
-                        >
-                          <div>
-                            <span className="text-sm font-bold text-slate-900">{t.id}</span>
-                            <span className="text-xs text-slate-400 ml-2">{t.company} / {t.driver}</span>
-                          </div>
-                          <span className={cn(
-                            'px-2 py-0.5 rounded-md text-[10px] font-bold',
-                            t.status === '운송중' ? 'bg-blue-100 text-blue-700' :
-                            t.status === '완료' ? 'bg-emerald-100 text-emerald-700' :
-                            'bg-slate-100 text-slate-500'
-                          )}>
-                            {t.status}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
+                  <div className="bg-slate-50 rounded-2xl p-8 text-center">
+                    <p className="text-slate-400 text-sm">위에서 배출건을 선택해주세요.</p>
                   </div>
                 ) : (
+                  <>
+                  {/* 축소형 요약 카드 */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 flex items-center gap-3">
+                      <ClipboardList className="w-4 h-4 text-indigo-500" />
+                      <div><p className="text-[10px] text-slate-400">총 자산</p><p className="text-sm font-black text-slate-900">{totalAssets}대</p></div>
+                    </div>
+                    <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 flex items-center gap-3">
+                      <CheckCircle2 className={cn("w-4 h-4", integrityRate === 100 ? "text-emerald-500" : "text-amber-500")} />
+                      <div><p className="text-[10px] text-slate-400">정합성</p><p className="text-sm font-black text-slate-900">{integrityRate}%</p></div>
+                    </div>
+                    <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 flex items-center gap-3">
+                      <Truck className={cn("w-4 h-4", transportStatus === '완료' ? "text-emerald-500" : transportStatus === '운송중' ? "text-indigo-500" : "text-slate-400")} />
+                      <div><p className="text-[10px] text-slate-400">운송상태</p><p className="text-sm font-black text-slate-900">{transportStatus}</p></div>
+                    </div>
+                  </div>
                   <div className="space-y-6">
                     {/* 운송 번호 헤더 */}
                     <div className="flex items-center gap-3">
@@ -2664,32 +2649,8 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* 배출신청 연결 정보 */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                      <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-                        <Settings className="w-4 h-4 text-slate-500" />
-                        연결된 배출신청
-                      </h3>
-                      {(() => {
-                        const linked = emissionRequests.find(e => e.id === currentTransportData.emissionId);
-                        if (!linked) return <p className="text-slate-400 text-sm">연결된 배출신청 없음</p>;
-                        return (
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            {[
-                              { label: '신청번호', value: linked.id },
-                              { label: '신청 업체', value: `${linked.company} · ${linked.applicant}` },
-                              { label: '수거지', value: linked.address },
-                            ].map((item, i) => (
-                              <div key={i} className="p-3 bg-slate-50 rounded-xl">
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">{item.label}</p>
-                                <p className="text-sm font-bold text-slate-900 mt-0.5 truncate">{item.value}</p>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                    </div>
                   </div>
+                  </>
                 )}
               </>
             )}
@@ -4366,12 +4327,28 @@ export default function App() {
       case 'settlement': {
         const settlementCenterOptions = ['경기남부센터', '서울센터', '부산센터'];
         const settlementData = [
-          { id: 'STL-001', emissionId: 'DSP-2026-00123', company: '리맨(유통)', type: '매출', amount: 2850000, date: '2026-03-15', status: '정산완료', items: '노트북 외 3건' },
-          { id: 'STL-002', emissionId: 'DSP-2026-00120', company: '미래시안', type: '매입', amount: -1200000, date: '2026-03-18', status: '정산완료', items: '서버 외 2건' },
-          { id: 'STL-003', emissionId: 'DSP-2026-00118', company: '한민', type: '매출', amount: 4800000, date: '2026-03-20', status: '정산대기', items: '데스크탑 외 8건' },
-          { id: 'STL-004', emissionId: 'DSP-2026-00124', company: '리맨(유통)', type: '매출', amount: 1500000, date: '2026-03-22', status: '정산대기', items: '모니터 외 5건' },
-          { id: 'STL-005', emissionId: 'DSP-2026-00105', company: '미래시안', type: '매입', amount: -950000, date: '2026-03-25', status: '미정산', items: '프린터 외 1건' },
-          { id: 'STL-006', emissionId: 'DSP-2026-00123', company: '한민', type: '매출', amount: 3200000, date: '2026-03-10', status: '정산완료', items: '네트워크장비 외 4건' },
+          // 자산매입금 (배출처가 자산을 매각 → 배출처 매출, 처리사 매입)
+          { id: 'STL-001', emissionId: 'DSP-2026-00123', company: 'K-ITAD 전자', type: '매출', category: '자산매입금', amount: 3200000, date: '2026-03-10', status: '정산완료', items: '노트북 24대, 서버 2대', taxInvoice: 'TX-20260310-001' },
+          { id: 'STL-002', emissionId: 'DSP-2026-00120', company: 'SKT', type: '매출', category: '자산매입금', amount: 5800000, date: '2026-03-08', status: '정산완료', items: '서버 12대', taxInvoice: 'TX-20260308-001' },
+          { id: 'STL-003', emissionId: 'DSP-2026-00118', company: '현대모비스', type: '매출', category: '자산매입금', amount: 1500000, date: '2026-03-05', status: '정산완료', items: 'PC 30대', taxInvoice: 'TX-20260305-001' },
+          // 보안운송비 (운송회사가 서비스 제공 → 운송회사 매출, 배출처 매입)
+          { id: 'STL-004', emissionId: 'DSP-2026-00123', company: '로지스', type: '매입', category: '보안운송비', amount: -450000, date: '2026-03-11', status: '정산완료', items: '보안운송 1건 (강남→용인)', taxInvoice: 'TX-20260311-001' },
+          { id: 'STL-005', emissionId: 'DSP-2026-00120', company: '지순', type: '매입', category: '보안운송비', amount: -680000, date: '2026-03-09', status: '정산완료', items: '보안운송 1건 (분당→용인)', taxInvoice: '' },
+          { id: 'STL-006', emissionId: 'DSP-2026-00124', company: '로지스', type: '매입', category: '보안운송비', amount: -320000, date: '2026-03-22', status: '정산대기', items: '보안운송 1건 (여의도→용인)', taxInvoice: '' },
+          // 재사용/재제조 판매 (처리사→유통사 판매 → 처리사 매출)
+          { id: 'STL-007', emissionId: 'DSP-2026-00123', company: '리맨(유통)', type: '매출', category: '재사용 판매', amount: 4200000, date: '2026-03-15', status: '정산완료', items: '노트북 18대 (리퍼비시)', taxInvoice: 'TX-20260315-001' },
+          { id: 'STL-008', emissionId: 'DSP-2026-00120', company: '리맨(유통)', type: '매출', category: '재사용 판매', amount: 8500000, date: '2026-03-18', status: '정산완료', items: '서버 8대 (부품재제조)', taxInvoice: 'TX-20260318-001' },
+          { id: 'STL-009', emissionId: 'DSP-2026-00118', company: '리맨(유통)', type: '매출', category: '재사용 판매', amount: 2100000, date: '2026-03-20', status: '정산대기', items: 'PC 15대 (리퍼비시)', taxInvoice: '' },
+          // 파분쇄 (처리사→파분쇄사 납품 → 처리사 매출)
+          { id: 'STL-010', emissionId: 'DSP-2026-00123', company: '미래시안', type: '매출', category: '파분쇄', amount: 850000, date: '2026-03-16', status: '정산완료', items: '기판류 120kg', taxInvoice: 'TX-20260316-001' },
+          { id: 'STL-011', emissionId: 'DSP-2026-00120', company: '미래시안', type: '매출', category: '파분쇄', amount: 1200000, date: '2026-03-19', status: '미정산', items: '기판류 180kg', taxInvoice: '' },
+          // 재활용원료 (처리사→제련사 납품 → 처리사 매출)
+          { id: 'STL-012', emissionId: 'DSP-2026-00123', company: '한민', type: '매출', category: '재활용원료', amount: 1650000, date: '2026-03-17', status: '정산완료', items: '금속류 250kg (구리/알루미늄)', taxInvoice: 'TX-20260317-001' },
+          { id: 'STL-013', emissionId: 'DSP-2026-00118', company: '한민', type: '매출', category: '재활용원료', amount: 980000, date: '2026-03-21', status: '정산대기', items: '금속류 150kg (구리)', taxInvoice: '' },
+          { id: 'STL-014', emissionId: 'DSP-2026-00124', company: '한민', type: '매출', category: '재활용원료', amount: 2300000, date: '2026-03-25', status: '미정산', items: '금속류 320kg (구리/금/은)', taxInvoice: '' },
+          // 확인서 발급비 (배출처→처리사 지급 → 배출처 매입)
+          { id: 'STL-015', emissionId: 'DSP-2026-00123', company: 'K-ITAD 전자', type: '매입', category: '확인서 발급비', amount: -150000, date: '2026-03-15', status: '정산완료', items: 'CoD 인증서 1건', taxInvoice: 'TX-20260315-002' },
+          { id: 'STL-016', emissionId: 'DSP-2026-00120', company: 'SKT', type: '매입', category: '확인서 발급비', amount: -150000, date: '2026-03-18', status: '정산완료', items: 'CoD 인증서 1건', taxInvoice: 'TX-20260318-002' },
         ];
         const settlementFiltered = (userRole === 'admin' || userRole === 'processor') ? settlementData : settlementData.filter(s => s.company === userCompany);
         const totalRevenue = settlementFiltered.filter(s => s.amount > 0).reduce((a, s) => a + s.amount, 0);
@@ -4462,7 +4439,8 @@ export default function App() {
                       <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산번호</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출신청번호</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">거래처명</th>
-                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">유형</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산유형</th>
+                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">매입/매출</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">금액</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">항목</th>
                       <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산일</th>
@@ -4476,6 +4454,7 @@ export default function App() {
                         <td className="px-4 py-3 text-sm font-bold text-slate-900">{s.id}</td>
                         <td className="px-4 py-3 text-sm text-violet-600 font-bold">{s.emissionId}</td>
                         <td className="px-4 py-3 text-sm font-medium text-slate-700">{s.company}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">{s.category}</td>
                         <td className="px-4 py-3">
                           <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
                             s.type === '매출' ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"
@@ -4887,12 +4866,12 @@ export default function App() {
       case 'allbaro':
         {
           const allbaroSampleData = [
-            { no: 1, requestNo: 'REQ-2026-0312', manifestNo: 'MF-2026-0401', receiveDate: '2026-03-20', receiveDetail: '', wasteType: '폐전자제품(대형)', emitter: '삼성전자 수원사업장', emitterHandoverDate: '2026-03-18', entrustQty: '1,200 kg', receiveQty: '1,200 kg', vehicleNo: '서울 12가 3456', storageType: '자가보관', tempStorage: '인천 서구 임시보관소', handoverDate: '2026-03-22', status: '올바로전송완료' as const, emitterCompany: '삼성전자' },
-            { no: 2, requestNo: 'REQ-2026-0315', manifestNo: 'MF-2026-0405', receiveDate: '2026-03-21', receiveDetail: '', wasteType: '폐저장매체', emitter: 'LG전자 평택공장', emitterHandoverDate: '2026-03-19', entrustQty: '350 kg', receiveQty: '350 kg', vehicleNo: '경기 34나 5678', storageType: '위탁보관', tempStorage: '화성 동탄 보관소', handoverDate: '2026-03-23', status: '올바로전송대기' as const, emitterCompany: 'LG전자' },
-            { no: 3, requestNo: 'REQ-2026-0318', manifestNo: 'MF-2026-0410', receiveDate: '2026-03-22', receiveDetail: '', wasteType: '폐통신기기', emitter: 'SK하이닉스 이천캠퍼스', emitterHandoverDate: '2026-03-20', entrustQty: '800 kg', receiveQty: '800 kg', vehicleNo: '인천 56다 7890', storageType: '자가보관', tempStorage: '이천 부발 보관소', handoverDate: '2026-03-24', status: '올바로전송완료' as const, emitterCompany: 'SK하이닉스' },
-            { no: 4, requestNo: 'REQ-2026-0320', manifestNo: 'MF-2026-0415', receiveDate: '2026-03-23', receiveDetail: '', wasteType: '폐전자제품(소형)', emitter: '현대오토에버 본사', emitterHandoverDate: '2026-03-21', entrustQty: '500 kg', receiveQty: '500 kg', vehicleNo: '서울 78라 1234', storageType: '위탁보관', tempStorage: '성남 분당 보관소', handoverDate: '', status: '올바로전송대기' as const, emitterCompany: '현대오토에버' },
-            { no: 5, requestNo: 'REQ-2026-0322', manifestNo: 'MF-2026-0420', receiveDate: '2026-03-24', receiveDetail: '', wasteType: '폐영상표시장치', emitter: '삼성전자 수원사업장', emitterHandoverDate: '2026-03-22', entrustQty: '650 kg', receiveQty: '650 kg', vehicleNo: '경기 90마 5678', storageType: '자가보관', tempStorage: '수원 영통 보관소', handoverDate: '2026-03-26', status: '올바로전송완료' as const, emitterCompany: '삼성전자' },
-            { no: 6, requestNo: 'REQ-2026-0325', manifestNo: 'MF-2026-0425', receiveDate: '2026-03-25', receiveDetail: '', wasteType: '폐전자제품(대형)', emitter: 'LG전자 평택공장', emitterHandoverDate: '2026-03-23', entrustQty: '900 kg', receiveQty: '900 kg', vehicleNo: '서울 12가 3456', storageType: '위탁보관', tempStorage: '평택 청북 보관소', handoverDate: '', status: '올바로전송대기' as const, emitterCompany: 'LG전자' },
+            { no: 1, requestNo: 'REQ-2026-0312', manifestNo: 'MF-2026-0401', receiveDate: '2026-03-20', handoverPerson: '김인수', wasteType: '폐전자제품(대형)', emitter: '삼성전자 수원사업장', emitterHandoverDate: '2026-03-18', entrustQty: '1,200 kg', receiveQty: '1,200 kg', vehicleNo: '서울 12가 3456', storageType: '자가보관', tempStorage: '인천 서구 임시보관소', handoverDate: '2026-03-22', status: '올바로전송완료' as const, emitterCompany: '삼성전자' },
+            { no: 2, requestNo: 'REQ-2026-0315', manifestNo: 'MF-2026-0405', receiveDate: '2026-03-21', handoverPerson: '김인수', wasteType: '폐저장매체', emitter: 'LG전자 평택공장', emitterHandoverDate: '2026-03-19', entrustQty: '350 kg', receiveQty: '350 kg', vehicleNo: '경기 34나 5678', storageType: '위탁보관', tempStorage: '화성 동탄 보관소', handoverDate: '2026-03-23', status: '올바로전송대기' as const, emitterCompany: 'LG전자' },
+            { no: 3, requestNo: 'REQ-2026-0318', manifestNo: 'MF-2026-0410', receiveDate: '2026-03-22', handoverPerson: '김인수', wasteType: '폐통신기기', emitter: 'SK하이닉스 이천캠퍼스', emitterHandoverDate: '2026-03-20', entrustQty: '800 kg', receiveQty: '800 kg', vehicleNo: '인천 56다 7890', storageType: '자가보관', tempStorage: '이천 부발 보관소', handoverDate: '2026-03-24', status: '올바로전송완료' as const, emitterCompany: 'SK하이닉스' },
+            { no: 4, requestNo: 'REQ-2026-0320', manifestNo: 'MF-2026-0415', receiveDate: '2026-03-23', handoverPerson: '김인수', wasteType: '폐전자제품(소형)', emitter: '현대오토에버 본사', emitterHandoverDate: '2026-03-21', entrustQty: '500 kg', receiveQty: '500 kg', vehicleNo: '서울 78라 1234', storageType: '위탁보관', tempStorage: '성남 분당 보관소', handoverDate: '', status: '올바로전송대기' as const, emitterCompany: '현대오토에버' },
+            { no: 5, requestNo: 'REQ-2026-0322', manifestNo: 'MF-2026-0420', receiveDate: '2026-03-24', handoverPerson: '김인수', wasteType: '폐영상표시장치', emitter: '삼성전자 수원사업장', emitterHandoverDate: '2026-03-22', entrustQty: '650 kg', receiveQty: '650 kg', vehicleNo: '경기 90마 5678', storageType: '자가보관', tempStorage: '수원 영통 보관소', handoverDate: '2026-03-26', status: '올바로전송완료' as const, emitterCompany: '삼성전자' },
+            { no: 6, requestNo: 'REQ-2026-0325', manifestNo: 'MF-2026-0425', receiveDate: '2026-03-25', handoverPerson: '김인수', wasteType: '폐전자제품(대형)', emitter: 'LG전자 평택공장', emitterHandoverDate: '2026-03-23', entrustQty: '900 kg', receiveQty: '900 kg', vehicleNo: '서울 12가 3456', storageType: '위탁보관', tempStorage: '평택 청북 보관소', handoverDate: '', status: '올바로전송대기' as const, emitterCompany: 'LG전자' },
           ];
 
           const filteredAllbaroData = (userRole === 'emitter' || userRole === 'transporter')
@@ -4949,6 +4928,26 @@ export default function App() {
 
               {/* 메인 테이블 */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-slate-700">연동 현황</span>
+                    <span className="text-xs text-slate-400">{filteredAllbaroData.length}건</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const pending = filteredAllbaroData.filter(d => d.status === '올바로전송대기').length;
+                      if (pending === 0) {
+                        alert('전송 대기 건이 없습니다.');
+                      } else {
+                        alert(`${pending}건을 올바로 시스템에 전송합니다.`);
+                      }
+                    }}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-bold hover:bg-teal-700 transition-all shadow-sm flex items-center gap-1.5"
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                    올바로전송
+                  </button>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -4957,7 +4956,6 @@ export default function App() {
                         <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">신청번호</th>
                         <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">인계서번호</th>
                         <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">인수일자</th>
-                        <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">인수내역</th>
                         <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">폐기물종류</th>
                         <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">배출자</th>
                         <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">배출자인계일자</th>
@@ -4967,7 +4965,7 @@ export default function App() {
                         <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">보관장소유형</th>
                         <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">임시보관장소</th>
                         <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">인계일자</th>
-                        <th className="text-center px-3 py-3 font-bold text-slate-600 whitespace-nowrap">인계저장</th>
+                        <th className="text-left px-3 py-3 font-bold text-slate-600 whitespace-nowrap">인계자명</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -4979,14 +4977,6 @@ export default function App() {
                           </td>
                           <td className="px-3 py-3 font-mono text-xs text-slate-600">{row.manifestNo}</td>
                           <td className="px-3 py-3 text-slate-600">{row.receiveDate}</td>
-                          <td className="px-3 py-3">
-                            <input
-                              type="text"
-                              placeholder="내역 입력"
-                              defaultValue={row.receiveDetail}
-                              className="w-24 px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                            />
-                          </td>
                           <td className="px-3 py-3 text-slate-700 font-bold text-xs">{row.wasteType}</td>
                           <td className="px-3 py-3">
                             <span className="font-bold text-slate-700 text-xs">{row.emitter}</span>
@@ -4998,6 +4988,7 @@ export default function App() {
                           <td className="px-3 py-3 text-slate-600 text-xs">{row.storageType}</td>
                           <td className="px-3 py-3 text-slate-600 text-xs">{row.tempStorage}</td>
                           <td className="px-3 py-3 text-slate-600">{row.handoverDate || '—'}</td>
+                          <td className="px-3 py-3 text-slate-700 text-xs font-bold">{row.handoverPerson}</td>
                           <td className="px-3 py-3 text-center">
                             <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap",
                               row.status === '올바로전송대기' ? "bg-amber-100 text-amber-700" :
@@ -5021,7 +5012,7 @@ export default function App() {
           ? ['회사정보', '검수 담당자', '데이터삭제 담당자', '분배 담당자']
           : ['회사정보'];
 
-        const [infoTab, setInfoTab] = React.useState(infoTabs[0]);
+        // infoTab state is declared at component top level
 
         const companyInfo = {
           name: userCompany,
