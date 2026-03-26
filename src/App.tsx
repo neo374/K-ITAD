@@ -283,7 +283,7 @@ export default function App() {
     { id: 'DSP-2026-00120', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '처리완료' as string, createdAt: '2026-03-18 08:00', assetCount: 31, assetSummary: 'Dell Optiplex 7090 외 30대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: '2026-03-19', address: '서울 영등포구 여의대로 108', processing: '재활용 우선', securityGrade: '기밀', transportId: 'TRN-2026-00049', totalWeight: '350kg' },
     { id: 'DSP-2026-00121', company: '한화시스템', applicant: '이한화', department: '클라우드사업부', contact: '010-7777-8888', email: 'lee@hanwha.com', status: '처리완료' as string, createdAt: '2026-03-18 09:30', assetCount: 12, assetSummary: 'Samsung SSD PM9A3 외 11개', deletionGrade: '완전파괴(DoD 5220.22-M)', collectionDate: '2026-03-19', address: '서울 종로구 세종대로 175', processing: '물리파쇄', securityGrade: '중요', transportId: 'TRN-2026-00050', totalWeight: '96kg' },
     { id: 'DSP-2026-00126', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '신청완료' as string, createdAt: '2026-03-24 11:00', assetCount: 5, assetSummary: 'MacBook Pro 16 외 4대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: '2026-03-28', address: '서울 강남구 테헤란로 521', processing: '재활용 우선', securityGrade: '일반', transportId: '', totalWeight: '15kg' },
-    { id: 'DSP-2026-00127', company: 'LG CNS', applicant: '박엘지', department: 'IT운영팀', contact: '010-9999-0000', email: 'park@lgcns.com', status: '승인대기' as string, createdAt: '2026-03-24 13:45', assetCount: 40, assetSummary: 'HP ProLiant DL380 외 39대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: '2026-03-30', address: '서울 마포구 월드컵북로 56길 19', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '1,200kg' },
+    { id: 'DSP-2026-00127', company: 'LG CNS', applicant: '박엘지', department: 'IT운영팀', contact: '010-9999-0000', email: 'park@lgcns.com', status: '접수확인' as string, createdAt: '2026-03-24 13:45', assetCount: 40, assetSummary: 'HP ProLiant DL380 외 39대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: '2026-03-30', address: '서울 마포구 월드컵북로 56길 19', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '1,200kg' },
   ]);
 
   const filteredEmissions = emissionRequests.filter(e => {
@@ -935,14 +935,16 @@ export default function App() {
                 className={cn("flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all",
                   emissionTab === 'list' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
                 )}>
-                <ClipboardList className="w-4 h-4" /> 배출신청 확인
+                <ClipboardList className="w-4 h-4" /> 배출신청 {userRole === 'processor' ? '접수' : '확인'}
               </button>
-              <button onClick={() => setEmissionTab('form')}
-                className={cn("flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all",
-                  emissionTab === 'form' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}>
-                <PlusCircle className="w-4 h-4" /> 신규 배출신청
-              </button>
+              {(userRole === 'emitter') && (
+                <button onClick={() => setEmissionTab('form')}
+                  className={cn("flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all",
+                    emissionTab === 'form' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  )}>
+                  <PlusCircle className="w-4 h-4" /> 신규 배출신청
+                </button>
+              )}
             </div>
 
             {/* ===== 배출신청 확인 탭 ===== */}
@@ -951,7 +953,7 @@ export default function App() {
                 {/* 필터/검색 */}
                 <div className="flex items-center gap-3">
                   <div className="flex gap-1 bg-white border border-slate-200 p-1 rounded-xl">
-                    {['전체', '신청완료', '승인대기', '운송중', '처리완료'].map(f => (
+                    {['전체', '신청완료', '접수확인', '운송중', '데이터폐기중', '처리완료'].map(f => (
                       <button key={f} onClick={() => setEmissionStatusFilter(f)}
                         className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
                           emissionStatusFilter === f ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-50"
@@ -995,7 +997,6 @@ export default function App() {
                         <th className="text-left px-4 py-3 font-bold text-slate-600">기업/신청자</th>
                         <th className="text-left px-4 py-3 font-bold text-slate-600">자산</th>
                         <th className="text-left px-4 py-3 font-bold text-slate-600">수거일</th>
-                        <th className="text-left px-4 py-3 font-bold text-slate-600">보안등급</th>
                         <th className="text-left px-4 py-3 font-bold text-slate-600">상태</th>
                         <th className="text-left px-4 py-3 font-bold text-slate-600">액션</th>
                       </tr>
@@ -1015,17 +1016,11 @@ export default function App() {
                           </td>
                           <td className="px-4 py-3 text-slate-600 text-xs font-bold">{e.collectionDate}</td>
                           <td className="px-4 py-3">
-                            <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-bold",
-                              e.securityGrade === '기밀' ? "bg-purple-100 text-purple-700" :
-                              e.securityGrade === '중요' ? "bg-amber-100 text-amber-700" :
-                              "bg-slate-100 text-slate-600"
-                            )}>{e.securityGrade}</span>
-                          </td>
-                          <td className="px-4 py-3">
                             <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
                               e.status === '신청완료' ? "bg-blue-100 text-blue-700" :
-                              e.status === '승인대기' ? "bg-amber-100 text-amber-700" :
+                              e.status === '접수확인' ? "bg-amber-100 text-amber-700" :
                               e.status === '운송중' ? "bg-indigo-100 text-indigo-700" :
+                              e.status === '데이터폐기중' ? "bg-violet-100 text-violet-700" :
                               "bg-emerald-100 text-emerald-700"
                             )}>{e.status}</span>
                           </td>
@@ -1088,11 +1083,19 @@ export default function App() {
                     <div className="flex items-center gap-3">
                       <span className={cn("px-3 py-1.5 rounded-lg text-sm font-bold",
                         selectedEmissionData.status === '신청완료' ? "bg-blue-100 text-blue-700" :
-                        selectedEmissionData.status === '승인대기' ? "bg-amber-100 text-amber-700" :
+                        selectedEmissionData.status === '접수확인' ? "bg-amber-100 text-amber-700" :
                         selectedEmissionData.status === '운송중' ? "bg-indigo-100 text-indigo-700" :
+                        selectedEmissionData.status === '데이터폐기중' ? "bg-violet-100 text-violet-700" :
                         "bg-emerald-100 text-emerald-700"
                       )}>{selectedEmissionData.status}</span>
-                      {(selectedEmissionData.status === '신청완료' || selectedEmissionData.status === '승인대기') && (
+                      {userRole === 'processor' && selectedEmissionData.status === '신청완료' && (
+                        <button onClick={() => {
+                          setEmissionRequests(prev => prev.map(r => r.id === selectedEmissionData.id ? {...r, status: '접수확인'} : r));
+                        }} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4" /> 접수완료
+                        </button>
+                      )}
+                      {userRole === 'emitter' && (selectedEmissionData.status === '신청완료' || selectedEmissionData.status === '접수확인') && (
                         <>
                           <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all flex items-center gap-1.5">
                             <Edit3 className="w-4 h-4" /> 수정
@@ -1142,7 +1145,7 @@ export default function App() {
                         {[
                           { label: '자산 수량', value: `${selectedEmissionData.assetCount}대 (${selectedEmissionData.totalWeight})` },
                           { label: '자산 요약', value: selectedEmissionData.assetSummary },
-                          { label: '보안등급', value: selectedEmissionData.securityGrade },
+                          { label: '예상정산금액', value: `${(selectedEmissionData.assetCount * 60000).toLocaleString()}원` },
                           { label: '삭제 등급', value: selectedEmissionData.deletionGrade },
                           { label: '처리 방식', value: selectedEmissionData.processing },
                         ].map((item, i) => (
@@ -1180,11 +1183,11 @@ export default function App() {
                       </h4>
                       <div className="space-y-0">
                         {[
-                          { step: '배출 신청', done: true },
-                          { step: '승인 완료', done: selectedEmissionData.status !== '신청완료' && selectedEmissionData.status !== '승인대기' },
-                          { step: '수거/운송', done: selectedEmissionData.status === '운송중' || selectedEmissionData.status === '처리완료', active: selectedEmissionData.status === '운송중' },
-                          { step: '데이터 폐기', done: selectedEmissionData.status === '처리완료' },
-                          { step: '처리 완료', done: selectedEmissionData.status === '처리완료' },
+                          { step: '신청완료', done: true },
+                          { step: '접수확인', done: ['접수확인', '운송중', '데이터폐기중', '처리완료'].includes(selectedEmissionData.status) },
+                          { step: '운송중', done: ['운송중', '데이터폐기중', '처리완료'].includes(selectedEmissionData.status), active: selectedEmissionData.status === '운송중' },
+                          { step: '데이터폐기중', done: ['데이터폐기중', '처리완료'].includes(selectedEmissionData.status), active: selectedEmissionData.status === '데이터폐기중' },
+                          { step: '처리완료', done: selectedEmissionData.status === '처리완료' },
                         ].map((s, i) => (
                           <div key={i} className="flex items-center gap-3">
                             <div className="flex flex-col items-center">
@@ -1762,48 +1765,49 @@ export default function App() {
                 {currentStep === 5 && (
                   <div className="space-y-8">
                     <div className="border-b border-slate-100 pb-4">
-                      <h3 className="text-xl font-bold text-slate-900">STEP 5. 처리 방식 선택</h3>
-                      <p className="text-slate-500 text-sm mt-1">자산의 최종 처리 방식과 정산 옵션을 선택해 주세요.</p>
+                      <h3 className="text-xl font-bold text-slate-900">STEP 5. 예상금액</h3>
+                      <p className="text-slate-500 text-sm mt-1">배출 자산의 예상 정산 금액을 확인하세요.</p>
                     </div>
-                    <div className="max-w-3xl space-y-10">
-                      <div className="space-y-4">
-                        <label className="text-sm font-bold text-slate-700">희망 처리 방식 (복수 선택 가능)</label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          {['재사용(리퍼)', '부품회수', '소재재활용', '폐기', '업체에 위임'].map(m => (
-                            <button 
-                              key={m}
-                              onClick={() => {
-                                const methods = formData.processingMethods.includes(m)
-                                  ? formData.processingMethods.filter(x => x !== m)
-                                  : [...formData.processingMethods, m];
-                                setFormData({...formData, processingMethods: methods});
-                              }}
-                              className={cn(
-                                "p-4 rounded-xl border-2 text-center font-bold transition-all",
-                                formData.processingMethods.includes(m) ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-100 text-slate-500 hover:border-slate-200"
-                              )}
-                            >
-                              {m}
-                            </button>
-                          ))}
+                    <div className="max-w-3xl space-y-6">
+                      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="divide-y divide-slate-100">
+                          <div className="flex items-center justify-between p-5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center"><span className="text-emerald-600 font-black text-xs">+</span></div>
+                              <div><p className="font-bold text-slate-900">배출자산가치</p><p className="text-xs text-slate-400">자산 {formData.assets.length}건 기준</p></div>
+                            </div>
+                            <p className="text-lg font-black text-emerald-600">+{(formData.assets.length * 125000).toLocaleString()}원</p>
+                          </div>
+                          <div className="flex items-center justify-between p-5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center"><span className="text-rose-600 font-black text-xs">-</span></div>
+                              <div><p className="font-bold text-slate-900">보안운송비</p><p className="text-xs text-slate-400">거리/수량 기반 산정</p></div>
+                            </div>
+                            <p className="text-lg font-black text-rose-600">-{(formData.assets.length * 15000).toLocaleString()}원</p>
+                          </div>
+                          <div className="flex items-center justify-between p-5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center"><span className="text-rose-600 font-black text-xs">-</span></div>
+                              <div><p className="font-bold text-slate-900">데이터삭제</p><p className="text-xs text-slate-400">{formData.dataDeletion ? formData.deletionGrade : '미요청'}</p></div>
+                            </div>
+                            <p className="text-lg font-black text-rose-600">-{formData.dataDeletion ? (formData.assets.length * 30000).toLocaleString() : '0'}원</p>
+                          </div>
+                          <div className="flex items-center justify-between p-5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center"><span className="text-rose-600 font-black text-xs">-</span></div>
+                              <div><p className="font-bold text-slate-900">최종처리비</p><p className="text-xs text-slate-400">분해/분류/폐기 비용</p></div>
+                            </div>
+                            <p className="text-lg font-black text-rose-600">-{(formData.assets.length * 20000).toLocaleString()}원</p>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <label className="text-sm font-bold text-slate-700">잔존가치 정산 희망</label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {['정산 받겠음', '처리비 지불', '업체 견적에 따름'].map(v => (
-                            <button 
-                              key={v}
-                              onClick={() => setFormData({...formData, settlementPreference: v})}
-                              className={cn(
-                                "p-4 rounded-xl border-2 text-center font-bold transition-all",
-                                formData.settlementPreference === v ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-100 text-slate-500 hover:border-slate-200"
-                              )}
-                            >
-                              {v}
-                            </button>
-                          ))}
+                        <div className="bg-indigo-50 border-t-2 border-indigo-200 p-6 flex items-center justify-between">
+                          <div>
+                            <p className="font-bold text-indigo-900 text-lg">정산금액 예상</p>
+                            <p className="text-xs text-indigo-500 mt-1">실제 금액은 검수 후 확정됩니다</p>
+                          </div>
+                          <p className="text-2xl font-black text-indigo-600">
+                            {((formData.assets.length * 125000) - (formData.assets.length * 15000) - (formData.dataDeletion ? formData.assets.length * 30000 : 0) - (formData.assets.length * 20000)).toLocaleString()}원
+                          </p>
                         </div>
                       </div>
 
@@ -1817,8 +1821,8 @@ export default function App() {
                             <p className="text-xs text-emerald-700 mt-1">탄소절감 및 자원순환 실적 리포트를 제공합니다.</p>
                           </div>
                         </div>
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={formData.esgReport}
                           onChange={(e) => setFormData({...formData, esgReport: e.target.checked})}
                           className="w-6 h-6 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
@@ -1862,6 +1866,12 @@ export default function App() {
                             <div className="flex justify-between">
                               <span className="text-slate-500">수거지</span>
                               <span className="font-bold text-slate-900 text-right">{formData.address} {formData.addressDetail}</span>
+                            </div>
+                            <div className="flex justify-between pt-3 mt-3 border-t border-slate-200">
+                              <span className="text-indigo-600 font-bold">예상 정산금액</span>
+                              <span className="font-black text-indigo-600 text-lg">
+                                {((formData.assets.length * 125000) - (formData.assets.length * 15000) - (formData.dataDeletion ? formData.assets.length * 30000 : 0) - (formData.assets.length * 20000)).toLocaleString()}원
+                              </span>
                             </div>
                           </div>
                         </div>
