@@ -342,6 +342,11 @@ export default function App() {
     securityPledge: true,
   });
 
+  // Calendar dispatch state
+  const [calendarAssignments, setCalendarAssignments] = useState<Record<string, { requestId: string; company: string; assetSummary: string }>>({});
+  const [draggedRequest, setDraggedRequest] = useState<string | null>(null);
+  const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
+
   const dispatchableEmissions = emissionRequests.filter(e => ['신청완료', '승인대기', '운송중'].includes(e.status));
   const getDispatchStatus = (emissionId: string) => {
     const t = transportMonitorData.transports.find(t => t.emissionId === emissionId);
@@ -2011,22 +2016,6 @@ export default function App() {
         const matchedAssets = currentTransportData?.matchedCount ?? 0;
         const integrityRate = totalAssets > 0 ? Math.round((matchedAssets / totalAssets) * 100) : 0;
         const transportStatus = currentTransportData?.status ?? '—';
-        const securityGrade = currentTransportData?.securityGrade ?? '—';
-
-        const vehicleTypeOptions = ['1톤 보안차량', '2.5톤 보안차량', '5톤 보안차량', '특수보안차량'];
-        const vehicleNumbersByType: Record<string, string[]> = {
-          '1톤 보안차량': ['12가 3456', '56다 1234', '90마 9012'],
-          '2.5톤 보안차량': ['34나 7890', '78라 5678'],
-          '5톤 보안차량': ['22바 1111', '33사 2222'],
-          '특수보안차량': ['44아 3333'],
-        };
-        const driverOptions = [
-          { name: '김운송', phone: '010-1234-5678' },
-          { name: '박배송', phone: '010-5678-9012' },
-          { name: '이기사', phone: '010-3333-4444' },
-          { name: '최보안', phone: '010-7777-8888' },
-          { name: '정안전', phone: '010-1111-2222' },
-        ];
 
         const filteredDispatch = dispatchableEmissions.filter(e => {
           if (dispatchFilter === '전체') return true;
@@ -2050,6 +2039,90 @@ export default function App() {
         const selectedDispatchEmission = dispatchableEmissions.find(e => e.id === selectedDispatch);
         const selectedDispatchStatus = selectedDispatch ? getDispatchStatus(selectedDispatch) : null;
 
+        // Calendar driver data
+        const calendarDrivers = [
+          { name: '박운송', vehicle: '서울12가3456' },
+          { name: '김기사', vehicle: '경기34나7890' },
+          { name: '이운전', vehicle: '서울56다1234' },
+        ];
+
+        // Generate Mon-Fri of current week with offset
+        const getWeekDates = (offset: number) => {
+          const now = new Date();
+          const dayOfWeek = now.getDay();
+          const monday = new Date(now);
+          monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + offset * 7);
+          const dates: { date: Date; label: string; key: string }[] = [];
+          const dayNames = ['월', '화', '수', '목', '금'];
+          for (let i = 0; i < 5; i++) {
+            const d = new Date(monday);
+            d.setDate(monday.getDate() + i);
+            dates.push({
+              date: d,
+              label: `${dayNames[i]} ${d.getMonth() + 1}/${d.getDate()}`,
+              key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+            });
+          }
+          return dates;
+        };
+        const weekDates = getWeekDates(calendarWeekOffset);
+
+        // Unassigned dispatch requests (배차대기 only)
+        const unassignedRequests = dispatchableEmissions.filter(e => {
+          const dStatus = getDispatchStatus(e.id);
+          if (dStatus === '배차완료') return false;
+          const isAssigned = Object.values(calendarAssignments).some((a: { requestId: string }) => a.requestId === e.id);
+          return !isAssigned;
+        });
+
+        // Role-based tab configuration
+        const getTransportTabs = () => {
+          switch (userRole) {
+            case 'emitter':
+              return [
+                { id: 'info' as const, label: '운송 정보', icon: FileText },
+                { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
+              ];
+            case 'transporter':
+              return [
+                { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
+                { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
+              ];
+            case 'processor':
+              return [
+                { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
+                { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
+              ];
+            case 'admin':
+            case 'government':
+              return [
+                { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
+                { id: 'info' as const, label: '운송 정보', icon: FileText },
+                { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
+              ];
+            default:
+              return [
+                { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
+                { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
+              ];
+          }
+        };
+        const transportTabs = getTransportTabs();
+
+        // Role-based title and description
+        const getTransportTitle = () => {
+          switch (userRole) {
+            case 'emitter': return { title: '운송현황 조회', desc: '배출 요청 건의 운송 상태를 확인합니다.' };
+            case 'transporter': return { title: '운송 관리', desc: '배차 관리 및 운송 모니터링을 수행합니다.' };
+            case 'processor': return { title: '운송 현황', desc: '배차 현황 조회 및 운송 모니터링을 확인합니다.' };
+            case 'admin': return { title: '운송 통합 관리', desc: '전체 운송 현황을 조회합니다.' };
+            default: return { title: '운송 관리', desc: '배차 관리 및 운송 모니터링을 수행합니다.' };
+          }
+        };
+        const transportTitle = getTransportTitle();
+
+        const isReadOnlyDispatch = userRole === 'processor' || userRole === 'admin' || userRole === 'government';
+
         return (
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
@@ -2062,20 +2135,21 @@ export default function App() {
               <div>
                 <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
                   <Truck className="w-8 h-8 text-indigo-600" />
-                  보안 운송
+                  {transportTitle.title}
                 </h1>
-                <p className="text-slate-500 mt-1">배차 관리, 자산 정합성, 운송 정보, 실시간 모니터링을 통합 관리합니다.</p>
+                <p className="text-slate-500 mt-1">{transportTitle.desc}</p>
               </div>
+              {isReadOnlyDispatch && transportTab === 'dispatch' && (
+                <span className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5" />
+                  읽기 전용
+                </span>
+              )}
             </div>
 
-            {/* 4 Tabs */}
+            {/* Tabs */}
             <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
-              {[
-                { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
-                { id: 'integrity' as const, label: '자산 정합성', icon: CheckCircle2 },
-                { id: 'info' as const, label: '운송 정보', icon: FileText },
-                { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
-              ].map(tab => (
+              {transportTabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setTransportTab(tab.id)}
@@ -2094,7 +2168,7 @@ export default function App() {
 
             {/* Summary cards — shown when a transport is selected and not on dispatch tab */}
             {currentTransportData && transportTab !== 'dispatch' && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {[
                   {
                     label: '총 자산수',
@@ -2117,13 +2191,6 @@ export default function App() {
                     icon: Truck,
                     color: transportStatus === '완료' ? 'emerald' : transportStatus === '운송중' ? 'indigo' : 'slate',
                   },
-                  {
-                    label: '보안등급',
-                    value: securityGrade,
-                    sub: currentTransportData.sealNumber,
-                    icon: ShieldCheck,
-                    color: securityGrade === '기밀' ? 'purple' : securityGrade === '중요' ? 'amber' : 'slate',
-                  },
                 ].map((card, i) => (
                   <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-3 mb-2">
@@ -2133,8 +2200,6 @@ export default function App() {
                           card.color === 'indigo' ? 'bg-indigo-50 text-indigo-600' :
                           card.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
                           card.color === 'amber' ? 'bg-amber-50 text-amber-600' :
-                          card.color === 'purple' ? 'bg-purple-50 text-purple-600' :
-                          card.color === 'rose' ? 'bg-rose-50 text-rose-600' :
                           'bg-slate-50 text-slate-600'
                         )}
                       >
@@ -2149,660 +2214,340 @@ export default function App() {
               </div>
             )}
 
-            {/* =================== TAB: 배차 관리 =================== */}
+            {/* =================== TAB: 배차 관리 (CALENDAR for transporter, read-only table for processor/admin) =================== */}
             {transportTab === 'dispatch' && (
               <div className="space-y-6">
-                {/* Filter + Table */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-                    <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                      <ClipboardList className="w-5 h-5 text-indigo-600" />
-                      배출신청 접수 목록
-                    </h2>
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="신청번호 / 업체명 검색"
-                          className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 w-52"
-                        />
-                      </div>
-                      <div className="flex bg-slate-100 p-1 rounded-xl">
-                        {['전체', '배차대기', '배차완료'].map(f => (
-                          <button
-                            key={f}
-                            onClick={() => setDispatchFilter(f)}
-                            className={cn(
-                              'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                              dispatchFilter === f ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                            )}
-                          >
-                            {f}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">신청번호</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">신청 업체</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산 요약</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">수거일</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">보안등급</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">배차 상태</th>
-                          <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">액션</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {filteredDispatch.map(e => {
-                          const dStatus = getDispatchStatus(e.id);
-                          const isSelected = selectedDispatch === e.id;
-                          return (
-                            <tr
-                              key={e.id}
-                              onClick={() => setSelectedDispatch(isSelected ? null : e.id)}
+                {userRole === 'transporter' ? (
+                  /* ===== TRANSPORTER: Calendar Drag & Drop ===== */
+                  <div className="flex gap-4" style={{ minHeight: 520 }}>
+                    {/* LEFT PANEL: Request list (40%) */}
+                    <div className="w-[40%] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                      <div className="p-4 border-b border-slate-100">
+                        <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <ClipboardList className="w-4 h-4 text-indigo-600" />
+                          배차 요청건
+                        </h2>
+                        <p className="text-xs text-slate-400 mt-1">아래 건을 캘린더에 드래그하여 배차하세요</p>
+                        <div className="flex bg-slate-100 p-1 rounded-xl mt-3">
+                          {['전체', '배차대기', '배차완료'].map(f => (
+                            <button
+                              key={f}
+                              onClick={() => setDispatchFilter(f)}
                               className={cn(
-                                'cursor-pointer transition-colors hover:bg-indigo-50/40',
-                                isSelected ? 'bg-indigo-50/70' : ''
+                                'px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex-1',
+                                dispatchFilter === f ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                               )}
                             >
-                              <td className="px-5 py-3 text-sm font-bold text-slate-900">{e.id}</td>
-                              <td className="px-5 py-3">
-                                <p className="text-sm font-bold text-slate-900">{e.company}</p>
-                                <p className="text-xs text-slate-500">{e.applicant}</p>
-                              </td>
-                              <td className="px-5 py-3 text-sm text-slate-600 max-w-[180px]">
-                                <p className="truncate">{e.assetSummary}</p>
-                                <p className="text-xs text-slate-400">{e.assetCount}대 · {e.totalWeight}</p>
-                              </td>
-                              <td className="px-5 py-3 text-sm text-slate-700 font-bold">{e.collectionDate}</td>
-                              <td className="px-5 py-3">
-                                <span
-                                  className={cn(
-                                    'px-2 py-0.5 rounded-md text-[11px] font-bold',
-                                    e.securityGrade === '기밀' ? 'bg-purple-100 text-purple-700' :
-                                    e.securityGrade === '중요' ? 'bg-amber-100 text-amber-700' :
-                                    'bg-slate-100 text-slate-600'
-                                  )}
-                                >
-                                  {e.securityGrade}
+                              {f}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                        {filteredDispatch.map(e => {
+                          const dStatus = getDispatchStatus(e.id);
+                          const isAssigned = Object.values(calendarAssignments).some((a: { requestId: string }) => a.requestId === e.id);
+                          const isDraggable = dStatus === '배차대기' && !isAssigned;
+                          return (
+                            <div
+                              key={e.id}
+                              draggable={isDraggable}
+                              onDragStart={(ev) => {
+                                if (!isDraggable) return;
+                                setDraggedRequest(e.id);
+                                ev.dataTransfer.effectAllowed = 'move';
+                                ev.dataTransfer.setData('text/plain', e.id);
+                              }}
+                              onDragEnd={() => setDraggedRequest(null)}
+                              className={cn(
+                                'p-3 rounded-xl border transition-all',
+                                isDraggable
+                                  ? 'border-indigo-200 bg-indigo-50/50 cursor-grab hover:shadow-md hover:border-indigo-300 active:cursor-grabbing'
+                                  : isAssigned
+                                    ? 'border-emerald-200 bg-emerald-50/50'
+                                    : dStatus === '배차완료'
+                                      ? 'border-slate-200 bg-slate-50/50'
+                                      : 'border-slate-200 bg-white',
+                                draggedRequest === e.id ? 'opacity-50 scale-95' : ''
+                              )}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-bold text-indigo-700">{e.id}</span>
+                                <span className={cn(
+                                  'px-2 py-0.5 rounded-md text-[10px] font-bold',
+                                  isAssigned ? 'bg-emerald-100 text-emerald-700' :
+                                  dStatus === '배차완료' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                )}>
+                                  {isAssigned ? '배정완료' : dStatus}
                                 </span>
-                              </td>
-                              <td className="px-5 py-3">
-                                <span
-                                  className={cn(
-                                    'px-2.5 py-1 rounded-lg text-[11px] font-bold',
-                                    dStatus === '배차완료' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                                  )}
-                                >
-                                  {dStatus}
-                                </span>
-                              </td>
-                              <td className="px-5 py-3">
-                                <button
-                                  onClick={ev => { ev.stopPropagation(); setSelectedDispatch(isSelected ? null : e.id); }}
-                                  className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
-                                >
-                                  {dStatus === '배차대기' ? '배차 등록' : '상세 보기'}
-                                  <ArrowRight className="w-3 h-3" />
-                                </button>
-                              </td>
-                            </tr>
+                              </div>
+                              <p className="text-sm font-bold text-slate-900 truncate">{e.company}</p>
+                              <p className="text-xs text-slate-500 truncate">{e.assetSummary}</p>
+                              <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400">
+                                <Clock className="w-3 h-3" />
+                                <span>{e.collectionDate}</span>
+                                <span className="text-slate-300">|</span>
+                                <span>{e.assetCount}대</span>
+                              </div>
+                            </div>
                           );
                         })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Detail panel for selected dispatch item */}
-                <AnimatePresence>
-                  {selectedDispatch && selectedDispatchEmission && (
-                    <motion.div
-                      key={selectedDispatch}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
-                    >
-                      {/* 배차대기 → 배차 등록 폼 */}
-                      {selectedDispatchStatus === '배차대기' ? (
-                        <div className="p-6 space-y-6">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                              <Truck className="w-5 h-5 text-indigo-600" />
-                              배차 등록 — {selectedDispatch}
-                            </h3>
-                            <button
-                              onClick={() => setSelectedDispatch(null)}
-                              className="text-slate-400 hover:text-slate-600 text-xl font-bold"
-                            >
-                              ×
-                            </button>
+                        {filteredDispatch.length === 0 && (
+                          <div className="py-8 text-center text-slate-400 text-sm">
+                            해당 조건의 요청이 없습니다.
                           </div>
-
-                          {/* 신청 정보 요약 */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-slate-50 rounded-xl">
-                            <div>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase">신청 업체</p>
-                              <p className="text-sm font-bold text-slate-900 mt-0.5">{selectedDispatchEmission.company}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase">수거지</p>
-                              <p className="text-sm font-bold text-slate-900 mt-0.5 truncate">{selectedDispatchEmission.address}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase">자산 수</p>
-                              <p className="text-sm font-bold text-slate-900 mt-0.5">{selectedDispatchEmission.assetCount}대</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase">보안등급</p>
-                              <span className={cn(
-                                'inline-block mt-0.5 px-2 py-0.5 rounded-md text-xs font-bold',
-                                selectedDispatchEmission.securityGrade === '기밀' ? 'bg-purple-100 text-purple-700' :
-                                selectedDispatchEmission.securityGrade === '중요' ? 'bg-amber-100 text-amber-700' :
-                                'bg-slate-100 text-slate-600'
-                              )}>
-                                {selectedDispatchEmission.securityGrade}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* 배차 폼 */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* 차량 정보 */}
-                            <div className="space-y-4">
-                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                <Truck className="w-4 h-4 text-indigo-500" />
-                                차량 정보
-                              </h4>
-                              <div className="space-y-3">
-                                <div>
-                                  <label className="block text-xs font-bold text-slate-500 mb-1">차종</label>
-                                  <div className="relative">
-                                    <select
-                                      value={dispatchForm.vehicleType}
-                                      onChange={e => setDispatchForm({ ...dispatchForm, vehicleType: e.target.value, vehicleNumber: '' })}
-                                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none bg-white"
-                                    >
-                                      {vehicleTypeOptions.map(v => (
-                                        <option key={v} value={v}>{v}</option>
-                                      ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-bold text-slate-500 mb-1">차량번호</label>
-                                  <div className="relative">
-                                    <select
-                                      value={dispatchForm.vehicleNumber}
-                                      onChange={e => setDispatchForm({ ...dispatchForm, vehicleNumber: e.target.value })}
-                                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none bg-white"
-                                    >
-                                      <option value="">차량번호 선택</option>
-                                      {(vehicleNumbersByType[dispatchForm.vehicleType] ?? []).map(n => (
-                                        <option key={n} value={n}>{n}</option>
-                                      ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* 운전기사 정보 */}
-                            <div className="space-y-4">
-                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                <User className="w-4 h-4 text-indigo-500" />
-                                운전기사
-                              </h4>
-                              <div className="space-y-3">
-                                <div>
-                                  <label className="block text-xs font-bold text-slate-500 mb-1">기사 선택</label>
-                                  <div className="relative">
-                                    <select
-                                      value={dispatchForm.driverName}
-                                      onChange={e => {
-                                        const driver = driverOptions.find(d => d.name === e.target.value);
-                                        setDispatchForm({
-                                          ...dispatchForm,
-                                          driverName: e.target.value,
-                                          driverPhone: driver?.phone ?? '',
-                                        });
-                                      }}
-                                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none bg-white"
-                                    >
-                                      <option value="">기사 선택</option>
-                                      {driverOptions.map(d => (
-                                        <option key={d.name} value={d.name}>{d.name}</option>
-                                      ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-bold text-slate-500 mb-1">연락처 (자동입력)</label>
-                                  <input
-                                    type="text"
-                                    readOnly
-                                    value={dispatchForm.driverPhone}
-                                    placeholder="기사 선택 시 자동 입력"
-                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 font-bold outline-none"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* 상차 일시 */}
-                            <div className="space-y-4">
-                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-indigo-500" />
-                                상차 일시
-                              </h4>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs font-bold text-slate-500 mb-1">상차일</label>
-                                  <input
-                                    type="date"
-                                    value={dispatchForm.departDate}
-                                    onChange={e => setDispatchForm({ ...dispatchForm, departDate: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-bold text-slate-500 mb-1">상차시간</label>
-                                  <input
-                                    type="time"
-                                    value={dispatchForm.departTime}
-                                    onChange={e => setDispatchForm({ ...dispatchForm, departTime: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* 도착 일시 */}
-                            <div className="space-y-4">
-                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                <Building2 className="w-4 h-4 text-indigo-500" />
-                                예상 도착 일시
-                              </h4>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs font-bold text-slate-500 mb-1">도착일</label>
-                                  <input
-                                    type="date"
-                                    value={dispatchForm.arrivalDate}
-                                    onChange={e => setDispatchForm({ ...dispatchForm, arrivalDate: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-bold text-slate-500 mb-1">도착시간</label>
-                                  <input
-                                    type="time"
-                                    value={dispatchForm.arrivalTime}
-                                    onChange={e => setDispatchForm({ ...dispatchForm, arrivalTime: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* 보안 조건 */}
-                          <div className="space-y-3">
-                            <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                              <ShieldCheck className="w-4 h-4 text-indigo-500" />
-                              보안 조건
-                            </h4>
-                            <div className="flex flex-wrap gap-4">
-                              {[
-                                { key: 'sealRequired' as const, label: '봉인 적용 필수' },
-                                { key: 'gpsTracking' as const, label: 'GPS 실시간 추적' },
-                                { key: 'securityPledge' as const, label: '보안 서약 완료' },
-                              ].map(opt => (
-                                <label key={opt.key} className="flex items-center gap-2 cursor-pointer select-none">
-                                  <div
-                                    onClick={() => setDispatchForm({ ...dispatchForm, [opt.key]: !dispatchForm[opt.key] })}
-                                    className={cn(
-                                      'w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer',
-                                      dispatchForm[opt.key]
-                                        ? 'bg-indigo-600 border-indigo-600'
-                                        : 'bg-white border-slate-300'
-                                    )}
-                                  >
-                                    {dispatchForm[opt.key] && <Check className="w-3 h-3 text-white" />}
-                                  </div>
-                                  <span className="text-sm font-bold text-slate-700">{opt.label}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Actions */}
-                          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-                            <button
-                              onClick={() => setSelectedDispatch(null)}
-                              className="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all"
-                            >
-                              취소
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedDispatch(null);
-                                setTransportTab('monitoring');
-                              }}
-                              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2"
-                            >
-                              <Truck className="w-4 h-4" />
-                              배차 등록 완료
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        /* 배차완료 → 요약 카드 */
-                        <div className="p-6 space-y-5">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                              배차 완료 — {selectedDispatch}
-                            </h3>
-                            <button
-                              onClick={() => setSelectedDispatch(null)}
-                              className="text-slate-400 hover:text-slate-600 text-xl font-bold"
-                            >
-                              ×
-                            </button>
-                          </div>
-                          {(() => {
-                            const tData = transportMonitorData.transports.find(t => t.emissionId === selectedDispatch);
-                            if (!tData) return null;
-                            return (
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                  {[
-                                    { label: '운송번호', value: tData.id, color: 'indigo' },
-                                    { label: '운송기사', value: tData.driver, color: 'slate' },
-                                    { label: '차량', value: tData.vehicle, color: 'slate' },
-                                    { label: '출발', value: tData.departTime, color: 'slate' },
-                                    { label: '예상도착', value: tData.estimatedArrival, color: 'slate' },
-                                    { label: '봉인번호', value: tData.sealNumber, color: 'purple' },
-                                  ].map((item, i) => (
-                                    <div key={i} className="p-3 bg-slate-50 rounded-xl">
-                                      <p className="text-[10px] text-slate-400 font-bold uppercase">{item.label}</p>
-                                      <p className={cn(
-                                        'text-sm font-bold mt-0.5',
-                                        item.color === 'indigo' ? 'text-indigo-700' :
-                                        item.color === 'purple' ? 'text-purple-700 font-mono' :
-                                        'text-slate-900'
-                                      )}>{item.value}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedTransport(tData.id);
-                                      setTransportTab('monitoring');
-                                      setSelectedDispatch(null);
-                                    }}
-                                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20"
-                                  >
-                                    <Monitor className="w-4 h-4" />
-                                    운송 모니터링 보기
-                                    <ArrowRight className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedTransport(tData.id);
-                                      setTransportTab('info');
-                                      setSelectedDispatch(null);
-                                    }}
-                                    className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all"
-                                  >
-                                    <FileText className="w-4 h-4" />
-                                    운송 상세 정보
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-
-            {/* =================== TAB: 자산 정합성 =================== */}
-            {transportTab === 'integrity' && (
-              <>
-                {!currentTransportData ? (
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
-                    <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-bold">운송 건을 선택하면 자산 정합성 데이터가 표시됩니다.</p>
-                    <p className="text-slate-400 text-sm mt-1">배차 관리 탭에서 배차완료 건을 선택하세요.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* 유형별 수량 비교표 */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                      <div className="p-5 border-b border-slate-100">
-                        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                          <ClipboardList className="w-5 h-5 text-indigo-600" />
-                          유형별 수량 비교 — {selectedTransport}
-                        </h3>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                          <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산 유형</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">신청 수량</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">실측 수량</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">차이</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">상태</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {integrityData?.types.map((row, i) => (
-                              <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-5 py-3 text-sm font-bold text-slate-900">{row.type}</td>
-                                <td className="px-5 py-3 text-sm text-slate-600 text-right font-bold">{row.registered}</td>
-                                <td className="px-5 py-3 text-sm text-slate-600 text-right font-bold">{row.scanned}</td>
-                                <td className="px-5 py-3 text-right">
-                                  <span className={cn(
-                                    'text-sm font-black',
-                                    row.diff === 0 ? 'text-emerald-600' :
-                                    row.diff < 0 ? 'text-rose-600' : 'text-amber-600'
-                                  )}>
-                                    {row.diff === 0 ? '±0' : row.diff > 0 ? `+${row.diff}` : `${row.diff}`}
-                                  </span>
-                                </td>
-                                <td className="px-5 py-3">
-                                  <span className={cn(
-                                    'px-2.5 py-1 rounded-lg text-[11px] font-bold',
-                                    row.diff === 0 ? 'bg-emerald-100 text-emerald-700' :
-                                    row.diff < 0 ? 'bg-rose-100 text-rose-700' :
-                                    'bg-amber-100 text-amber-700'
-                                  )}>
-                                    {row.diff === 0 ? '일치' : row.diff < 0 ? '누락' : '초과'}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    {/* 일치율 프로그레스바 */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-bold text-slate-900">정합성 일치율</h3>
-                        <span className={cn(
-                          'text-3xl font-black',
-                          integrityRate === 100 ? 'text-emerald-600' : integrityRate >= 90 ? 'text-amber-600' : 'text-rose-600'
-                        )}>
-                          {integrityRate}%
-                        </span>
-                      </div>
-                      <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className={cn(
-                            'h-full rounded-full transition-all duration-700',
-                            integrityRate === 100 ? 'bg-emerald-500' : integrityRate >= 90 ? 'bg-amber-500' : 'bg-rose-500'
-                          )}
-                          style={{ width: `${integrityRate}%` }}
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 pt-2">
-                        <div className="text-center p-3 bg-emerald-50 rounded-xl">
-                          <p className="text-2xl font-black text-emerald-700">{currentTransportData.integrityResult.matched}</p>
-                          <p className="text-xs font-bold text-emerald-600 mt-0.5">일치</p>
-                        </div>
-                        <div className="text-center p-3 bg-amber-50 rounded-xl">
-                          <p className="text-2xl font-black text-amber-700">{currentTransportData.integrityResult.mismatched}</p>
-                          <p className="text-xs font-bold text-amber-600 mt-0.5">불일치</p>
-                        </div>
-                        <div className="text-center p-3 bg-rose-50 rounded-xl">
-                          <p className="text-2xl font-black text-rose-700">{currentTransportData.integrityResult.unregistered}</p>
-                          <p className="text-xs font-bold text-rose-600 mt-0.5">미등록</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 현장 메모 + 현장 사진 */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
-                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                          <Edit3 className="w-4 h-4 text-indigo-600" />
-                          현장 메모
-                        </h3>
-                        <div className="p-4 bg-slate-50 rounded-xl text-sm text-slate-700 leading-relaxed min-h-[80px]">
-                          {integrityData?.memo || '현장 메모 없음'}
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
-                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                          <Camera className="w-4 h-4 text-indigo-600" />
-                          현장 사진
-                        </h3>
-                        {integrityData?.photos && integrityData.photos.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {integrityData.photos.map((photo, i) => (
-                              <div
-                                key={i}
-                                className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-indigo-50 rounded-lg text-sm font-bold text-slate-700 cursor-pointer transition-colors border border-slate-200 hover:border-indigo-300"
-                              >
-                                <Camera className="w-4 h-4 text-indigo-500" />
-                                {photo}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-slate-400 text-sm">등록된 사진이 없습니다.</p>
                         )}
                       </div>
                     </div>
 
-                    {/* 스캔된 자산 상세 목록 */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                      <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-                        <h3 className="text-base font-bold text-slate-900">스캔된 자산 상세 목록</h3>
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <input
-                              type="text"
-                              placeholder="S/N, 모델명 검색"
-                              value={integritySearch}
-                              onChange={e => setIntegritySearch(e.target.value)}
-                              className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 w-44"
-                            />
-                          </div>
-                          <div className="flex bg-slate-100 p-1 rounded-xl">
-                            {['전체', 'matched', 'unregistered', 'mismatched'].map(f => (
-                              <button
-                                key={f}
-                                onClick={() => setIntegrityFilter(f)}
-                                className={cn(
-                                  'px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize',
-                                  integrityFilter === f ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                )}
-                              >
-                                {f === '전체' ? '전체' : f === 'matched' ? '일치' : f === 'unregistered' ? '미등록' : '불일치'}
-                              </button>
-                            ))}
-                          </div>
+                    {/* RIGHT PANEL: Weekly Calendar (60%) */}
+                    <div className="w-[60%] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                        <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          <ClipboardList className="w-4 h-4 text-indigo-600" />
+                          주간 배차 캘린더
+                        </h2>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setCalendarWeekOffset(calendarWeekOffset - 1)}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                          >
+                            <ChevronLeft className="w-4 h-4 text-slate-500" />
+                          </button>
+                          <button
+                            onClick={() => setCalendarWeekOffset(0)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                          >
+                            이번 주
+                          </button>
+                          <button
+                            onClick={() => setCalendarWeekOffset(calendarWeekOffset + 1)}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                          >
+                            <ChevronRight className="w-4 h-4 text-slate-500" />
+                          </button>
                         </div>
                       </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                          <thead className="bg-slate-50 border-b border-slate-200">
+                      <div className="flex-1 overflow-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
                             <tr>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">스캔 ID</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">S/N</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">유형</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">제조사</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">모델</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">상태</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">스캔시각</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">비고</th>
+                              <th className="sticky left-0 z-10 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-500 text-left border-b border-r border-slate-200 w-[140px]">
+                                기사 / 차량
+                              </th>
+                              {weekDates.map(d => (
+                                <th key={d.key} className="px-2 py-2.5 text-xs font-bold text-slate-500 text-center border-b border-slate-200 min-w-[110px]">
+                                  {d.label}
+                                </th>
+                              ))}
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {filteredIntegrityAssets.map(asset => (
-                              <tr key={asset.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-5 py-3 text-sm font-bold text-slate-700">{asset.id}</td>
-                                <td className="px-5 py-3 text-sm font-mono text-slate-800">{asset.sn}</td>
-                                <td className="px-5 py-3 text-sm text-slate-600">{asset.type}</td>
-                                <td className="px-5 py-3 text-sm text-slate-600">{asset.manufacturer}</td>
-                                <td className="px-5 py-3 text-sm text-slate-700 font-bold">{asset.model}</td>
-                                <td className="px-5 py-3">
-                                  <span className={cn(
-                                    'px-2.5 py-1 rounded-lg text-[11px] font-bold',
-                                    asset.status === 'matched' ? 'bg-emerald-100 text-emerald-700' :
-                                    asset.status === 'unregistered' ? 'bg-amber-100 text-amber-700' :
-                                    'bg-rose-100 text-rose-700'
-                                  )}>
-                                    {asset.status === 'matched' ? '일치' : asset.status === 'unregistered' ? '미등록' : '불일치'}
-                                  </span>
+                          <tbody>
+                            {calendarDrivers.map(driver => (
+                              <tr key={driver.name}>
+                                <td className="sticky left-0 z-10 bg-white px-3 py-3 border-b border-r border-slate-100">
+                                  <p className="text-sm font-bold text-slate-900">{driver.name}</p>
+                                  <p className="text-[10px] text-slate-400 font-mono">{driver.vehicle}</p>
                                 </td>
-                                <td className="px-5 py-3 text-sm text-slate-500 font-bold">{asset.scanTime}</td>
-                                <td className="px-5 py-3 text-sm text-slate-400">{asset.remark || '—'}</td>
+                                {weekDates.map(d => {
+                                  const cellKey = `${driver.name}__${d.key}`;
+                                  const assignment = calendarAssignments[cellKey];
+                                  return (
+                                    <td
+                                      key={d.key}
+                                      className={cn(
+                                        'px-1.5 py-1.5 border-b border-slate-100 text-center align-top transition-colors min-h-[60px]',
+                                        !assignment ? 'hover:bg-indigo-50/30' : ''
+                                      )}
+                                      onDragOver={(ev) => {
+                                        if (!assignment) {
+                                          ev.preventDefault();
+                                          ev.currentTarget.classList.add('bg-indigo-100/50');
+                                        }
+                                      }}
+                                      onDragLeave={(ev) => {
+                                        ev.currentTarget.classList.remove('bg-indigo-100/50');
+                                      }}
+                                      onDrop={(ev) => {
+                                        ev.preventDefault();
+                                        ev.currentTarget.classList.remove('bg-indigo-100/50');
+                                        const reqId = ev.dataTransfer.getData('text/plain');
+                                        if (!reqId || assignment) return;
+                                        const emission = dispatchableEmissions.find(e => e.id === reqId);
+                                        if (!emission) return;
+                                        setCalendarAssignments(prev => ({
+                                          ...prev,
+                                          [cellKey]: {
+                                            requestId: reqId,
+                                            company: emission.company,
+                                            assetSummary: emission.assetSummary,
+                                          },
+                                        }));
+                                        setDraggedRequest(null);
+                                      }}
+                                    >
+                                      {assignment ? (
+                                        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2 text-left relative group">
+                                          <button
+                                            onClick={() => {
+                                              setCalendarAssignments(prev => {
+                                                const next = { ...prev };
+                                                delete next[cellKey];
+                                                return next;
+                                              });
+                                            }}
+                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                          >
+                                            ×
+                                          </button>
+                                          <p className="text-[10px] font-bold text-indigo-700 truncate">{assignment.requestId}</p>
+                                          <p className="text-[10px] text-slate-600 truncate">{assignment.company}</p>
+                                          <button
+                                            onClick={() => {
+                                              setSelectedDispatch(null);
+                                              setTransportTab('monitoring');
+                                            }}
+                                            className="mt-1.5 w-full px-2 py-1 bg-indigo-600 text-white rounded-md text-[10px] font-bold hover:bg-indigo-700 transition-colors"
+                                          >
+                                            배차완료
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="h-[56px] rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center">
+                                          <span className="text-[10px] text-slate-300">드롭</span>
+                                        </div>
+                                      )}
+                                    </td>
+                                  );
+                                })}
                               </tr>
                             ))}
-                            {filteredIntegrityAssets.length === 0 && (
-                              <tr>
-                                <td colSpan={8} className="px-5 py-8 text-center text-slate-400 text-sm">
-                                  해당 조건의 자산이 없습니다.
-                                </td>
-                              </tr>
-                            )}
                           </tbody>
                         </table>
                       </div>
+                      {/* Calendar summary */}
+                      <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-xs">
+                          <span className="text-slate-500">
+                            배정: <strong className="text-indigo-700">{Object.keys(calendarAssignments).length}건</strong>
+                          </span>
+                          <span className="text-slate-500">
+                            미배정: <strong className="text-amber-600">{unassignedRequests.length}건</strong>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* ===== PROCESSOR / ADMIN / GOVERNMENT: Read-only table ===== */
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+                      <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <ClipboardList className="w-5 h-5 text-indigo-600" />
+                        배차 현황
+                      </h2>
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="신청번호 / 업체명 검색"
+                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 w-52"
+                          />
+                        </div>
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                          {['전체', '배차대기', '배차완료'].map(f => (
+                            <button
+                              key={f}
+                              onClick={() => setDispatchFilter(f)}
+                              className={cn(
+                                'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                                dispatchFilter === f ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                              )}
+                            >
+                              {f}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                          <tr>
+                            <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">신청번호</th>
+                            <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">신청 업체</th>
+                            <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산 요약</th>
+                            <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">수거일</th>
+                            <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">배차 상태</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredDispatch.map(e => {
+                            const dStatus = getDispatchStatus(e.id);
+                            return (
+                              <tr key={e.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-5 py-3 text-sm font-bold text-slate-900">{e.id}</td>
+                                <td className="px-5 py-3">
+                                  <p className="text-sm font-bold text-slate-900">{e.company}</p>
+                                  <p className="text-xs text-slate-500">{e.applicant}</p>
+                                </td>
+                                <td className="px-5 py-3 text-sm text-slate-600 max-w-[180px]">
+                                  <p className="truncate">{e.assetSummary}</p>
+                                  <p className="text-xs text-slate-400">{e.assetCount}대 · {e.totalWeight}</p>
+                                </td>
+                                <td className="px-5 py-3 text-sm text-slate-700 font-bold">{e.collectionDate}</td>
+                                <td className="px-5 py-3">
+                                  <span
+                                    className={cn(
+                                      'px-2.5 py-1 rounded-lg text-[11px] font-bold',
+                                      dStatus === '배차완료' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                    )}
+                                  >
+                                    {dStatus}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
 
-            {/* =================== TAB: 운송 정보 =================== */}
+            {/* =================== TAB: 운송 정보 (emitter + admin) =================== */}
             {transportTab === 'info' && (
               <>
                 {!currentTransportData ? (
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
                     <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-bold">운송 건을 선택하면 운송 정보가 표시됩니다.</p>
+                    {/* Transport list for selection */}
+                    <div className="mt-6 max-w-lg mx-auto space-y-2">
+                      {transportMonitorData.transports.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => setSelectedTransport(t.id)}
+                          className="w-full p-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-xl text-left transition-all flex items-center justify-between"
+                        >
+                          <div>
+                            <span className="text-sm font-bold text-slate-900">{t.id}</span>
+                            <span className="text-xs text-slate-400 ml-2">{t.company} / {t.driver}</span>
+                          </div>
+                          <span className={cn(
+                            'px-2 py-0.5 rounded-md text-[10px] font-bold',
+                            t.status === '운송중' ? 'bg-blue-100 text-blue-700' :
+                            t.status === '완료' ? 'bg-emerald-100 text-emerald-700' :
+                            'bg-slate-100 text-slate-500'
+                          )}>
+                            {t.status}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -2867,7 +2612,6 @@ export default function App() {
                           {[
                             { label: '기사명', value: currentTransportData.driver },
                             { label: '연락처', value: currentTransportData.driverPhone },
-                            { label: '운송기사 등급', value: '1급 보안 취급' },
                           ].map((row, i) => (
                             <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
                               <span className="text-sm text-slate-500">{row.label}</span>
@@ -2930,12 +2674,11 @@ export default function App() {
                         const linked = emissionRequests.find(e => e.id === currentTransportData.emissionId);
                         if (!linked) return <p className="text-slate-400 text-sm">연결된 배출신청 없음</p>;
                         return (
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {[
                               { label: '신청번호', value: linked.id },
                               { label: '신청 업체', value: `${linked.company} · ${linked.applicant}` },
                               { label: '수거지', value: linked.address },
-                              { label: '삭제 등급', value: linked.deletionGrade },
                             ].map((item, i) => (
                               <div key={i} className="p-3 bg-slate-50 rounded-xl">
                                 <p className="text-[10px] text-slate-400 font-bold uppercase">{item.label}</p>
@@ -2958,6 +2701,29 @@ export default function App() {
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
                     <Monitor className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-bold">운송 건을 선택하면 모니터링 화면이 표시됩니다.</p>
+                    {/* Transport list for selection */}
+                    <div className="mt-6 max-w-lg mx-auto space-y-2">
+                      {transportMonitorData.transports.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => setSelectedTransport(t.id)}
+                          className="w-full p-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-xl text-left transition-all flex items-center justify-between"
+                        >
+                          <div>
+                            <span className="text-sm font-bold text-slate-900">{t.id}</span>
+                            <span className="text-xs text-slate-400 ml-2">{t.company} / {t.driver}</span>
+                          </div>
+                          <span className={cn(
+                            'px-2 py-0.5 rounded-md text-[10px] font-bold',
+                            t.status === '운송중' ? 'bg-blue-100 text-blue-700' :
+                            t.status === '완료' ? 'bg-emerald-100 text-emerald-700' :
+                            'bg-slate-100 text-slate-500'
+                          )}>
+                            {t.status}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -3249,8 +3015,7 @@ export default function App() {
                             <tr>
                               <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">운송번호</th>
                               <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">배출신청번호</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">보안등급</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">출발지 → 도착지</th>
+                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">출발지 / 도착지</th>
                               <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산 수량</th>
                               <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">현재 상태</th>
                               <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">봉인 상태</th>
@@ -3271,16 +3036,6 @@ export default function App() {
                                 >
                                   <td className="px-5 py-3 text-sm font-bold text-slate-900">{t.id}</td>
                                   <td className="px-5 py-3 text-sm text-indigo-600 font-bold">{t.emissionId}</td>
-                                  <td className="px-5 py-3">
-                                    <span className={cn(
-                                      'px-2 py-0.5 rounded-md text-[11px] font-bold',
-                                      t.securityGrade === '기밀' ? 'bg-purple-100 text-purple-700' :
-                                      t.securityGrade === '중요' ? 'bg-amber-100 text-amber-700' :
-                                      'bg-slate-100 text-slate-600'
-                                    )}>
-                                      {t.securityGrade}
-                                    </span>
-                                  </td>
                                   <td className="px-5 py-3 text-sm text-slate-600">
                                     <span className="truncate max-w-[100px] inline-block">{t.from.split(' ').slice(0, 2).join(' ')}</span>
                                     <span className="text-slate-400 mx-1">→</span>
