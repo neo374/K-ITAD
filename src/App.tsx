@@ -325,6 +325,7 @@ export default function App() {
   const [infoTab, setInfoTab] = useState('회사정보');
   const [transportTab, setTransportTab] = useState<'dispatch' | 'integrity' | 'info' | 'monitoring'>('dispatch');
   const [selectedTransport, setSelectedTransport] = useState<string | null>('TRN-2026-00051');
+  const [transportDetailModal, setTransportDetailModal] = useState<string | null>(null);
   const [transportFilter, setTransportFilter] = useState('전체');
   const [integrityFilter, setIntegrityFilter] = useState('전체');
   const [integritySearch, setIntegritySearch] = useState('');
@@ -906,8 +907,8 @@ export default function App() {
   };
 
   const allNavItems = [
-    { id: 'emission', label: '배출신청', icon: FileText },
-    { id: 'transport', label: '보안운송', icon: Truck },
+    { id: 'emission', label: '배출관리', icon: FileText },
+    { id: 'transport', label: '운송관리', icon: Truck },
     { id: 'disposal', label: '데이터폐기', icon: ShieldCheck },
     { id: 'processing', label: '자산처리', icon: Cog },
     { id: 'settlement', label: '정산관리', icon: CircleDollarSign },
@@ -931,34 +932,23 @@ export default function App() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">배출신청</h1>
-                <p className="text-slate-500 mt-1">{emissionTab === 'form' ? 'IT 자산 배출을 위한 정보를 단계별로 입력해 주세요.' : '배출신청 내역을 확인하고 관리합니다.'}</p>
+                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">배출관리</h1>
+                <p className="text-slate-500 mt-1">배출신청 내역을 확인하고 관리합니다.</p>
               </div>
-            </div>
-
-            {/* 탭 전환 */}
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-              <button onClick={() => { setEmissionTab('list'); setSelectedEmissionDetail(null); }}
-                className={cn("flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all",
-                  emissionTab === 'list' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}>
-                <ClipboardList className="w-4 h-4" /> 배출신청 {userRole === 'processor' ? '접수' : '확인'}
-              </button>
-              {(userRole === 'emitter') && (
+              {userRole === 'emitter' && emissionTab === 'list' && !selectedEmissionDetail && (
                 <button onClick={() => setEmissionTab('form')}
-                  className={cn("flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all",
-                    emissionTab === 'form' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                  )}>
-                  <PlusCircle className="w-4 h-4" /> 신규 배출신청
+                  className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-sm flex items-center gap-2">
+                  <PlusCircle className="w-4 h-4" />
+                  배출신청
                 </button>
               )}
             </div>
 
             {/* ===== 배출신청 확인 탭 ===== */}
-            {emissionTab === 'list' && !selectedEmissionDetail && (
+            {!selectedEmissionDetail && (
               <div className="space-y-4">
-                {/* 필터/검색 */}
-                <div className="flex items-center gap-3">
+                {/* 필터/검색/기간 */}
+                <div className="flex flex-wrap items-center gap-3">
                   <div className="flex gap-1 bg-white border border-slate-200 p-1 rounded-xl">
                     {['전체', '신청완료', '접수확인', '운송중', '데이터폐기중', '처리완료'].map(f => (
                       <button key={f} onClick={() => setEmissionStatusFilter(f)}
@@ -967,31 +957,18 @@ export default function App() {
                         )}>{f}</button>
                     ))}
                   </div>
-                  <div className="relative flex-1 max-w-xs">
+                  <div className="flex items-center gap-2">
+                    <input type="date" className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                    <span className="text-slate-400 text-xs">~</span>
+                    <input type="date" className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                  </div>
+                  <div className="flex-1"></div>
+                  <div className="relative w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input value={emissionSearchQuery} onChange={e => setEmissionSearchQuery(e.target.value)}
                       placeholder="신청번호, 기업명, 신청자 검색..."
                       className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20" />
                   </div>
-                </div>
-
-                {/* 요약 카드 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    { label: '전체 신청', value: emissionRequests.length, color: 'slate' },
-                    { label: '신청/승인대기', value: emissionRequests.filter(e => e.status === '신청완료' || e.status === '승인대기').length, color: 'amber' },
-                    { label: '운송중', value: emissionRequests.filter(e => e.status === '운송중').length, color: 'blue' },
-                    { label: '처리완료', value: emissionRequests.filter(e => e.status === '처리완료').length, color: 'emerald' },
-                  ].map((card, i) => (
-                    <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                      <p className="text-xs font-bold text-slate-500">{card.label}</p>
-                      <p className={cn("text-2xl font-black mt-1",
-                        card.color === 'amber' ? "text-amber-600" :
-                        card.color === 'blue' ? "text-blue-600" :
-                        card.color === 'emerald' ? "text-emerald-600" : "text-slate-900"
-                      )}>{card.value}<span className="text-sm font-bold text-slate-400 ml-1">건</span></p>
-                    </div>
-                  ))}
                 </div>
 
                 {/* 신청 내역 테이블 */}
@@ -1005,13 +982,12 @@ export default function App() {
                         <th className="text-left px-4 py-3 font-bold text-slate-600">자산</th>
                         <th className="text-left px-4 py-3 font-bold text-slate-600">수거일</th>
                         <th className="text-left px-4 py-3 font-bold text-slate-600">상태</th>
-                        <th className="text-left px-4 py-3 font-bold text-slate-600">액션</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredEmissions.map(e => (
-                        <tr key={e.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3 font-bold text-emerald-700 cursor-pointer hover:underline" onClick={() => setSelectedEmissionDetail(e.id)}>{e.id}</td>
+                        <tr key={e.id} onClick={() => setSelectedEmissionDetail(e.id)} className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer">
+                          <td className="px-4 py-3 font-bold text-emerald-700">{e.id}</td>
                           <td className="px-4 py-3 text-slate-500 text-xs">{e.createdAt}</td>
                           <td className="px-4 py-3">
                             <span className="font-bold text-slate-700">{e.company}</span>
@@ -1031,28 +1007,6 @@ export default function App() {
                               "bg-emerald-100 text-emerald-700"
                             )}>{e.status}</span>
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => setSelectedEmissionDetail(e.id)}
-                                className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[11px] font-bold hover:bg-slate-200 transition-all">
-                                상세
-                              </button>
-                              {(e.status === '신청완료' || e.status === '승인대기') && (
-                                <>
-                                  <button className="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg text-[11px] font-bold hover:bg-blue-100 transition-all">
-                                    수정
-                                  </button>
-                                  <button onClick={() => {
-                                    if (confirm(`${e.id} 배출신청을 삭제하시겠습니까?`)) {
-                                      setEmissionRequests(prev => prev.filter(r => r.id !== e.id));
-                                    }
-                                  }} className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[11px] font-bold hover:bg-rose-100 transition-all">
-                                    삭제
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1068,7 +1022,7 @@ export default function App() {
             )}
 
             {/* ===== 배출신청 상세 보기 ===== */}
-            {emissionTab === 'list' && selectedEmissionDetail && selectedEmissionData && (
+            {selectedEmissionDetail && selectedEmissionData && (
               <div className="space-y-4">
                 <button onClick={() => setSelectedEmissionDetail(null)}
                   className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors">
@@ -1222,7 +1176,17 @@ export default function App() {
             )}
 
             {/* ===== 신규 배출신청 폼 ===== */}
-            {emissionTab === 'form' && <>
+            {/* 배출신청 모달 */}
+            {emissionTab === 'form' && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-6 overflow-y-auto" onClick={(e) => { if (e.target === e.currentTarget) setEmissionTab('list'); }}>
+            <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl relative mb-8" onClick={(e) => e.stopPropagation()}>
+              <div className="px-8 pt-6 pb-0 flex items-center justify-between">
+                <h2 className="text-lg font-black text-slate-900">배출신청</h2>
+                <button onClick={() => setEmissionTab('list')} className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors">
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+              <div className="px-8 pb-8 pt-4 space-y-6">
 
             {/* Step Indicator */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -1380,194 +1344,108 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      {/* Individual Registration Form */}
-                      <div className="lg:col-span-1 bg-slate-50 p-6 rounded-2xl space-y-4">
-                        <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                          <Plus className="w-4 h-4" />
-                          개별 자산 추가
-                        </h4>
-                        <div className="space-y-3">
+                    <div className="space-y-6">
+                      {/* 개별 자산 추가 폼 (상단) */}
+                      <div className="bg-slate-50 p-6 rounded-2xl space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-500">자산 유형</label>
-                            <select 
-                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
-                              value={currentAsset.type}
-                              onChange={(e) => setCurrentAsset({...currentAsset, type: e.target.value})}
-                            >
-                              <option>PC</option>
-                              <option>노트북</option>
-                              <option>서버</option>
-                              <option>모니터</option>
-                              <option>모바일</option>
-                              <option>네트워크장비</option>
-                              <option>프린터</option>
-                              <option>기타</option>
+                            <select className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" value={currentAsset.type} onChange={(e) => setCurrentAsset({...currentAsset, type: e.target.value})}>
+                              <option>PC</option><option>노트북</option><option>서버</option><option>모니터</option><option>모바일</option><option>네트워크장비</option><option>프린터</option><option>기타</option>
                             </select>
                           </div>
                           <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-500">제조사</label>
-                            <div className="flex flex-col gap-1.5">
-                              <select 
-                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
-                                value={['Samsung', 'HP', 'Dell', 'Lenovo', 'Apple', 'LG', ''].includes(currentAsset.manufacturer) ? currentAsset.manufacturer : '직접입력'}
-                                onChange={(e) => {
-                                  if (e.target.value === '직접입력') {
-                                    setCurrentAsset({...currentAsset, manufacturer: ''});
-                                  } else {
-                                    setCurrentAsset({...currentAsset, manufacturer: e.target.value});
-                                  }
-                                }}
-                              >
-                                <option value="">선택</option>
-                                <option value="Samsung">Samsung</option>
-                                <option value="HP">HP</option>
-                                <option value="Dell">Dell</option>
-                                <option value="Lenovo">Lenovo</option>
-                                <option value="Apple">Apple</option>
-                                <option value="LG">LG</option>
-                                <option value="직접입력">직접입력</option>
-                              </select>
-                              {(!['Samsung', 'HP', 'Dell', 'Lenovo', 'Apple', 'LG', ''].includes(currentAsset.manufacturer)) && (
-                                <input 
-                                  type="text" 
-                                  placeholder="제조사 직접 입력"
-                                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
-                                  value={currentAsset.manufacturer}
-                                  onChange={(e) => setCurrentAsset({...currentAsset, manufacturer: e.target.value})}
-                                />
-                              )}
-                            </div>
+                            <select className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
+                              value={['Samsung', 'HP', 'Dell', 'Lenovo', 'Apple', 'LG', ''].includes(currentAsset.manufacturer) ? currentAsset.manufacturer : '직접입력'}
+                              onChange={(e) => { if (e.target.value === '직접입력') { setCurrentAsset({...currentAsset, manufacturer: ''}); } else { setCurrentAsset({...currentAsset, manufacturer: e.target.value}); } }}>
+                              <option value="">선택</option><option value="Samsung">Samsung</option><option value="HP">HP</option><option value="Dell">Dell</option><option value="Lenovo">Lenovo</option><option value="Apple">Apple</option><option value="LG">LG</option><option value="직접입력">직접입력</option>
+                            </select>
                           </div>
                           <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-500">모델명</label>
-                            <input 
-                              type="text" 
-                              placeholder="모델명을 입력하세요"
-                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
-                              value={currentAsset.model}
-                              onChange={(e) => setCurrentAsset({...currentAsset, model: e.target.value})}
-                            />
+                            <input type="text" placeholder="모델명" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" value={currentAsset.model} onChange={(e) => setCurrentAsset({...currentAsset, model: e.target.value})} />
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-500">수량</label>
-                              <input 
-                                type="number" 
-                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
-                                value={currentAsset.quantity}
-                                onChange={(e) => setCurrentAsset({...currentAsset, quantity: parseInt(e.target.value) || 0})}
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-500">제조연도 (선택)</label>
-                              <input 
-                                type="text" 
-                                placeholder="YYYY"
-                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
-                                value={currentAsset.year}
-                                onChange={(e) => setCurrentAsset({...currentAsset, year: e.target.value})}
-                              />
-                            </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500">수량</label>
+                            <input type="number" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" value={currentAsset.quantity} onChange={(e) => setCurrentAsset({...currentAsset, quantity: parseInt(e.target.value) || 0})} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500">제조연도 (선택)</label>
+                            <input type="text" placeholder="YYYY" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" value={currentAsset.year} onChange={(e) => setCurrentAsset({...currentAsset, year: e.target.value})} />
                           </div>
                           <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-500">자산번호 (선택)</label>
-                            <input 
-                              type="text" 
-                              placeholder="사내 관리번호"
-                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
-                              value={currentAsset.assetNo}
-                              onChange={(e) => setCurrentAsset({...currentAsset, assetNo: e.target.value})}
-                            />
+                            <input type="text" placeholder="사내 관리번호" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" value={currentAsset.assetNo} onChange={(e) => setCurrentAsset({...currentAsset, assetNo: e.target.value})} />
                           </div>
                           <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-500">외관 상태</label>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex gap-1.5">
                               {['양호', '경미손상', '파손', '전원불가'].map(s => (
-                                <button 
-                                  key={s}
-                                  onClick={() => setCurrentAsset({...currentAsset, condition: s})}
-                                  className={cn(
-                                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                                    currentAsset.condition === s ? "bg-emerald-500 text-white" : "bg-white text-slate-500 border border-slate-200"
-                                  )}
-                                >
-                                  {s}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-500">장비 사진 (선택 - 최대 3장)</label>
-                            <div className="grid grid-cols-3 gap-2">
-                              {[1, 2, 3].map(i => (
-                                <div key={i} className="aspect-square bg-white border border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-300 hover:text-slate-400 hover:border-slate-400 cursor-pointer transition-all">
-                                  <Camera className="w-5 h-5" />
-                                </div>
+                                <button key={s} onClick={() => setCurrentAsset({...currentAsset, condition: s})}
+                                  className={cn("px-2.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap", currentAsset.condition === s ? "bg-emerald-500 text-white" : "bg-white text-slate-500 border border-slate-200")}>{s}</button>
                               ))}
                             </div>
                           </div>
                           <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-500">비고</label>
-                            <textarea 
-                              placeholder="특이사항 자유 기재"
-                              className="w-full h-20 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none resize-none"
-                              value={currentAsset.remarks}
-                              onChange={(e) => setCurrentAsset({...currentAsset, remarks: e.target.value})}
-                            ></textarea>
+                            <input type="text" placeholder="특이사항" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" value={currentAsset.remarks} onChange={(e) => setCurrentAsset({...currentAsset, remarks: e.target.value})} />
                           </div>
-                          <button 
-                            onClick={addAsset}
-                            className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm mt-4 hover:bg-slate-800 transition-colors"
-                          >
-                            목록에 추가
-                          </button>
+                        </div>
+                        <div className="flex items-center justify-between pt-2">
+                          <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-100 transition-colors cursor-pointer">
+                            <Camera className="w-4 h-4" />
+                            사진 등록
+                            <input type="file" className="hidden" accept="image/*" multiple />
+                          </label>
+                          <button onClick={addAsset} className="px-6 py-2.5 bg-slate-900 text-white rounded-lg font-bold text-sm hover:bg-slate-800 transition-colors">목록에 추가</button>
                         </div>
                       </div>
 
-                      {/* Asset List */}
-                      <div className="lg:col-span-2 space-y-4">
+                      {/* 등록된 자산 목록 (하단 테이블) */}
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <h4 className="font-bold text-slate-900">등록된 자산 목록 ({formData.assets.length})</h4>
                           {formData.assets.length > 0 && (
-                            <button 
-                              onClick={() => setFormData({...formData, assets: []})}
-                              className="text-xs font-bold text-red-500 hover:underline"
-                            >
-                              전체 삭제
-                            </button>
+                            <button onClick={() => setFormData({...formData, assets: []})} className="text-xs font-bold text-red-500 hover:underline">전체 삭제</button>
                           )}
                         </div>
                         {formData.assets.length === 0 ? (
-                          <div className="h-full min-h-[300px] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400">
-                            <Monitor className="w-12 h-12 mb-2 opacity-20" />
+                          <div className="min-h-[120px] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400">
+                            <Monitor className="w-10 h-10 mb-2 opacity-20" />
                             <p className="text-sm font-medium">등록된 자산이 없습니다.</p>
-                            <p className="text-xs mt-1">왼쪽 폼에서 자산을 추가해 주세요.</p>
+                            <p className="text-xs mt-1">위 폼에서 자산을 추가해 주세요.</p>
                           </div>
                         ) : (
-                          <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                            {formData.assets.map((asset) => (
-                              <div key={asset.id} className="bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between group hover:border-emerald-500 transition-all">
-                                <div className="flex items-center gap-4">
-                                  <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-                                    <Monitor className="w-5 h-5" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-bold text-slate-900">{asset.manufacturer} {asset.model}</p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                      <span className="text-[10px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">{asset.type}</span>
-                                      <span className="text-[10px] text-slate-400">{asset.quantity}대 | {asset.condition}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                                <button 
-                                  onClick={() => removeAsset(asset.id)}
-                                  className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                                >
-                                  <X className="w-5 h-5" />
-                                </button>
-                              </div>
-                            ))}
+                          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-slate-50 border-b border-slate-200">
+                                  <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-500">유형</th>
+                                  <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-500">제조사</th>
+                                  <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-500">모델명</th>
+                                  <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-500">수량</th>
+                                  <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-500">상태</th>
+                                  <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-500">비고</th>
+                                  <th className="px-4 py-2.5"></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {formData.assets.map((asset) => (
+                                  <tr key={asset.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                    <td className="px-4 py-2.5"><span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-bold">{asset.type}</span></td>
+                                    <td className="px-4 py-2.5 text-slate-700">{asset.manufacturer}</td>
+                                    <td className="px-4 py-2.5 font-bold text-slate-900">{asset.model}</td>
+                                    <td className="px-4 py-2.5 text-slate-700">{asset.quantity}대</td>
+                                    <td className="px-4 py-2.5 text-slate-500">{asset.condition}</td>
+                                    <td className="px-4 py-2.5 text-slate-400 text-xs">{asset.remarks || '-'}</td>
+                                    <td className="px-4 py-2.5"><button onClick={() => removeAsset(asset.id)} className="text-slate-300 hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button></td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
                         )}
                       </div>
@@ -2007,7 +1885,10 @@ export default function App() {
                 </div>
               </div>
             </div>
-            </>}
+              </div>
+            </div>
+            </div>
+            )}
           </motion.div>
         );
       case 'transport': {
@@ -2081,10 +1962,7 @@ export default function App() {
         const getTransportTabs = () => {
           switch (userRole) {
             case 'emitter':
-              return [
-                { id: 'info' as const, label: '운송 정보', icon: FileText },
-                { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
-              ];
+              return [];
             case 'transporter':
               return [
                 { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
@@ -2114,7 +1992,7 @@ export default function App() {
         // Role-based title and description
         const getTransportTitle = () => {
           switch (userRole) {
-            case 'emitter': return { title: '운송현황 조회', desc: '배출 요청 건의 운송 상태를 확인합니다.' };
+            case 'emitter': return { title: '운송 모니터링', desc: '배출 요청 건의 운송 상태를 실시간으로 확인합니다.' };
             case 'transporter': return { title: '운송 관리', desc: '배차 관리 및 운송 모니터링을 수행합니다.' };
             case 'processor': return { title: '운송 현황', desc: '배차 현황 조회 및 운송 모니터링을 확인합니다.' };
             case 'admin': return { title: '운송 통합 관리', desc: '전체 운송 현황을 조회합니다.' };
@@ -2150,28 +2028,213 @@ export default function App() {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
-              {transportTabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setTransportTab(tab.id)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all',
-                    transportTab === tab.id
-                      ? 'bg-white text-indigo-700 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  )}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            {transportTabs.length > 0 && (
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
+                {transportTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setTransportTab(tab.id)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all',
+                      transportTab === tab.id
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    )}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {/* Summary cards moved inside info tab */}
+            {/* =================== 배출자 전용: 차량 목록 + 지도 통합 뷰 =================== */}
+            {userRole === 'emitter' && (
+              <div className="flex gap-0 rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white" style={{ height: 'calc(100vh - 220px)', minHeight: 500 }}>
+                {/* 좌측: 배출요청건 목록 */}
+                <div className="w-[320px] border-r border-slate-200 flex flex-col flex-shrink-0">
+                  <div className="p-4 border-b border-slate-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-bold text-slate-900">배출요청건 ({transportMonitorData.transports.length})</p>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px]">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 bg-blue-500 rounded-full"></span><span className="font-bold text-blue-600">운송중 {transportMonitorData.transports.filter(t => t.status === '운송중').length}</span></span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 bg-emerald-500 rounded-full"></span><span className="font-bold text-emerald-600">완료 {transportMonitorData.transports.filter(t => t.status === '완료').length}</span></span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 bg-slate-300 rounded-full"></span><span className="font-bold text-slate-400">대기 {transportMonitorData.transports.filter(t => t.status !== '운송중' && t.status !== '완료').length}</span></span>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {transportMonitorData.transports.map(t => (
+                      <div
+                        key={t.id}
+                        className={cn(
+                          "px-4 py-3.5 border-b border-slate-100 cursor-pointer transition-all",
+                          selectedTransport === t.id ? "bg-indigo-50 border-l-4 border-l-indigo-500" : "hover:bg-slate-50 border-l-4 border-l-transparent"
+                        )}
+                      >
+                        <div onClick={() => setSelectedTransport(t.id)}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-bold text-slate-900">{t.emissionId || t.id}</span>
+                            <span className={cn(
+                              'px-2 py-0.5 rounded-md text-[10px] font-bold',
+                              t.status === '운송중' ? 'bg-blue-100 text-blue-700' :
+                              t.status === '완료' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                            )}>{t.status}</span>
+                          </div>
+                          <p className="text-xs text-slate-600">{t.company}</p>
+                          <div className="flex items-center justify-between mt-1.5">
+                            <p className="text-[10px] text-slate-400">{t.vehicle} · {t.driver} · {t.assetCount}대</p>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setTransportDetailModal(t.id); }}
+                              className="text-[10px] text-indigo-600 font-bold hover:underline"
+                            >
+                              상세보기
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 우측: Leaflet 실제 지도 */}
+                <div className="flex-1 relative">
+                  <div
+                    id="emitter-transport-map"
+                    className="w-full h-full"
+                    style={{ zIndex: 0 }}
+                    ref={(el) => {
+                      if (!el || (el as any).__leaflet_map) return;
+                      const L = (window as any).L;
+                      if (!L) return;
+                      const map = L.map(el, { zoomControl: false }).setView([37.35, 127.1], 10);
+                      L.control.zoom({ position: 'bottomright' }).addTo(map);
+                      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; OpenStreetMap',
+                        maxZoom: 18,
+                      }).addTo(map);
+
+                      // 출발지 (서울 강남구)
+                      const startLatLng: [number, number] = [37.5087, 127.0632];
+                      // 도착지 (경기 용인시 ITAD센터)
+                      const endLatLng: [number, number] = [37.2411, 127.1775];
+
+                      const createIcon = (color: string, label: string) =>
+                        L.divIcon({
+                          className: '',
+                          html: `<div style="width:28px;height:28px;background:${color};border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:10px;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${label}</div>`,
+                          iconSize: [28, 28],
+                          iconAnchor: [14, 14],
+                        });
+
+                      L.marker(startLatLng, { icon: createIcon('#10b981', 'S') }).addTo(map).bindPopup('<b>출발지</b><br>서울 강남구 테헤란로 521');
+                      L.marker(endLatLng, { icon: createIcon('#ef4444', 'E') }).addTo(map).bindPopup('<b>ITAD 처리센터</b><br>경기 용인시 처인구');
+
+                      // 경로선
+                      const routePoints: [number, number][] = [
+                        startLatLng, [37.48, 127.08], [37.44, 127.10], [37.40, 127.12],
+                        [37.36, 127.14], [37.32, 127.16], [37.28, 127.17], endLatLng,
+                      ];
+                      // 경로 외곽선 (두꺼운 어두운 선)
+                      L.polyline(routePoints, { color: '#1e293b', weight: 7, opacity: 0.3, lineCap: 'round', lineJoin: 'round' }).addTo(map);
+                      // 경로 메인선 (밝은 파란색)
+                      L.polyline(routePoints, { color: '#4f46e5', weight: 5, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(map);
+
+                      // 차량 마커들
+                      const vehiclePositions: [number, number][] = [
+                        [37.45, 127.09], [37.40, 127.11], [37.36, 127.13], [37.48, 127.07], [37.30, 127.16],
+                      ];
+                      const statusColors: Record<string, string> = { '운송중': '#3b82f6', '완료': '#10b981' };
+                      transportMonitorData.transports.forEach((t: any, i: number) => {
+                        const pos = vehiclePositions[i % vehiclePositions.length];
+                        const color = statusColors[t.status] || '#94a3b8';
+                        const marker = L.marker(pos, {
+                          icon: createIcon(color, String(i + 1)),
+                        }).addTo(map);
+                        marker.bindPopup(`<b>${t.emissionId || t.id}</b><br>${t.company}<br>${t.vehicle} · ${t.driver}<br>상태: ${t.status}`);
+                        marker.on('click', () => setSelectedTransport(t.id));
+                      });
+
+                      (el as any).__leaflet_map = map;
+                      setTimeout(() => map.invalidateSize(), 200);
+                    }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
+            {/* 배출자: 알림 로그 */}
+            {userRole === 'emitter' && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-indigo-600" />
+                    운송 알림
+                  </h3>
+                  <span className="text-[10px] text-slate-400">최근 24시간</span>
+                </div>
+                <div className="divide-y divide-slate-100 max-h-[200px] overflow-y-auto">
+                  {[
+                    { time: '14:32', type: '경로이탈', msg: 'DSP-2026-00123: 설정 경로에서 1.2km 이탈 감지', level: 'danger' },
+                    { time: '13:15', type: '상차완료', msg: 'DSP-2026-00124: K-ITAD 전자 상차 완료, 운송 시작', level: 'info' },
+                    { time: '11:40', type: '배차확정', msg: 'DSP-2026-00125: 박운송 기사 배정 완료 (서울12가3456)', level: 'info' },
+                    { time: '10:05', type: '도착완료', msg: 'DSP-2026-00122: ITAD 처리센터 도착, 하차 대기중', level: 'success' },
+                    { time: '09:30', type: '운송지연', msg: 'DSP-2026-00121: 예상 도착시간 대비 25분 지연', level: 'warning' },
+                    { time: '08:50', type: '인수완료', msg: 'DSP-2026-00120: 하차 인수인계 완료, 봉인 정상', level: 'success' },
+                  ].map((n, i) => (
+                    <div key={i} className="px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors">
+                      <span className="text-[10px] text-slate-400 font-mono w-10 flex-shrink-0 pt-0.5">{n.time}</span>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded-md text-[10px] font-bold flex-shrink-0",
+                        n.level === 'danger' ? "bg-rose-100 text-rose-700" :
+                        n.level === 'warning' ? "bg-amber-100 text-amber-700" :
+                        n.level === 'success' ? "bg-emerald-100 text-emerald-700" :
+                        "bg-blue-100 text-blue-700"
+                      )}>{n.type}</span>
+                      <p className="text-xs text-slate-600 leading-relaxed">{n.msg}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 배출자 상세정보 모달 */}
+            {userRole === 'emitter' && transportDetailModal && (() => {
+              const detail = transportMonitorData.transports.find(t => t.id === transportDetailModal);
+              if (!detail) return null;
+              return (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center" style={{ zIndex: 9999 }} onClick={() => setTransportDetailModal(null)}>
+                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-black text-slate-900">운송 상세정보</h3>
+                      <button onClick={() => setTransportDetailModal(null)} className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200"><X className="w-4 h-4 text-slate-500" /></button>
+                    </div>
+                    <div className="space-y-0">
+                      {[
+                        { label: '배출신청번호', value: detail.emissionId || detail.id },
+                        { label: '운송회사', value: detail.company },
+                        { label: '운전자', value: detail.driver },
+                        { label: '차량번호', value: detail.vehicle },
+                        { label: '자산수', value: `${detail.assetCount}대` },
+                        { label: '운송상태', value: detail.status },
+                        { label: '출발지', value: detail.from || '서울 강남구 테헤란로' },
+                        { label: '도착지', value: detail.to || '경기 용인시 ITAD센터' },
+                        { label: '봉인번호', value: detail.sealNumber, mono: true },
+                        { label: '봉인상태', value: detail.sealStatus || '정상' },
+                      ].map((row, i) => (
+                        <div key={i} className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0">
+                          <span className="text-sm text-slate-500">{row.label}</span>
+                          <span className={cn("text-sm font-bold text-slate-900", row.mono && "font-mono text-purple-700")}>{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* =================== TAB: 배차 관리 (CALENDAR for transporter, read-only table for processor/admin) =================== */}
-            {transportTab === 'dispatch' && (
+            {transportTab === 'dispatch' && userRole !== 'emitter' && (
               <div className="space-y-6">
                 {userRole === 'transporter' ? (
                   /* ===== TRANSPORTER: Calendar Drag & Drop ===== */
@@ -2480,7 +2543,7 @@ export default function App() {
             )}
 
             {/* =================== TAB: 운송 정보 (emitter + admin) =================== */}
-            {transportTab === 'info' && (
+            {transportTab === 'info' && userRole !== 'emitter' && (
               <>
                 {/* 배출건 선택 (상단 고정) */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
@@ -2656,7 +2719,7 @@ export default function App() {
             )}
 
             {/* =================== TAB: 운송 모니터링 =================== */}
-            {transportTab === 'monitoring' && (
+            {transportTab === 'monitoring' && userRole !== 'emitter' && (
               <>
                 {!currentTransportData ? (
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
