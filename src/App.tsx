@@ -93,7 +93,8 @@ import {
   Gift,
   Trash2,
   Factory,
-  CircleDollarSign
+  CircleDollarSign,
+  CalendarDays
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -322,6 +323,9 @@ export default function App() {
 
   // Transport State
   const [selectedSettlement, setSelectedSettlement] = useState<string | null>(null);
+  const [settlementStartDate, setSettlementStartDate] = useState('');
+  const [settlementEndDate, setSettlementEndDate] = useState('');
+  const [settlementDetailEmissionId, setSettlementDetailEmissionId] = useState<string | null>(null);
   const [infoTab, setInfoTab] = useState('회사정보');
   const [transportTab, setTransportTab] = useState<'dispatch' | 'integrity' | 'info' | 'monitoring'>('dispatch');
   const [selectedTransport, setSelectedTransport] = useState<string | null>('TRN-2026-00051');
@@ -4413,7 +4417,12 @@ export default function App() {
           { id: 'STL-015', emissionId: 'DSP-2026-00123', company: 'K-ITAD 전자', type: '매입', category: '확인서 발급비', amount: -150000, date: '2026-03-15', status: '정산완료', items: 'CoD 인증서 1건', taxInvoice: 'TX-20260315-002' },
           { id: 'STL-016', emissionId: 'DSP-2026-00120', company: 'SKT', type: '매입', category: '확인서 발급비', amount: -150000, date: '2026-03-18', status: '정산완료', items: 'CoD 인증서 1건', taxInvoice: 'TX-20260318-002' },
         ];
-        const settlementFiltered = (userRole === 'admin' || userRole === 'processor') ? settlementData : settlementData.filter(s => s.company === userCompany);
+        const settlementByRole = (userRole === 'admin' || userRole === 'processor') ? settlementData : settlementData.filter(s => s.company === userCompany);
+        const settlementFiltered = settlementByRole.filter(s => {
+          if (settlementStartDate && s.date < settlementStartDate) return false;
+          if (settlementEndDate && s.date > settlementEndDate) return false;
+          return true;
+        });
         const totalRevenue = settlementFiltered.filter(s => s.amount > 0).reduce((a, s) => a + s.amount, 0);
         const totalExpense = settlementFiltered.filter(s => s.amount < 0).reduce((a, s) => a + s.amount, 0);
         const totalBalance = totalRevenue + totalExpense;
@@ -4479,20 +4488,33 @@ export default function App() {
 
             {/* 정산 내역 테이블 */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+              <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <h3 className="text-lg font-bold text-slate-900">정산 내역</h3>
-                <div className="flex items-center gap-2">
-                  <select className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none">
-                    <option>전체 기간</option>
-                    <option>최근 1개월</option>
-                    <option>최근 3개월</option>
-                    <option>최근 6개월</option>
-                  </select>
-                  <select className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none">
-                    <option>전체 유형</option>
-                    <option>매출</option>
-                    <option>매입</option>
-                  </select>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                    <CalendarDays className="w-4 h-4 text-slate-400" />
+                    <input
+                      type="date"
+                      value={settlementStartDate}
+                      onChange={e => setSettlementStartDate(e.target.value)}
+                      className="bg-transparent text-sm outline-none text-slate-700 w-[130px]"
+                    />
+                    <span className="text-slate-400 text-sm">~</span>
+                    <input
+                      type="date"
+                      value={settlementEndDate}
+                      onChange={e => setSettlementEndDate(e.target.value)}
+                      className="bg-transparent text-sm outline-none text-slate-700 w-[130px]"
+                    />
+                  </div>
+                  {(settlementStartDate || settlementEndDate) && (
+                    <button
+                      onClick={() => { setSettlementStartDate(''); setSettlementEndDate(''); }}
+                      className="px-3 py-2 text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+                    >
+                      초기화
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="overflow-x-auto">
@@ -4515,7 +4537,14 @@ export default function App() {
                     {settlementFiltered.map(s => (
                       <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3 text-sm font-bold text-slate-900">{s.id}</td>
-                        <td className="px-4 py-3 text-sm text-violet-600 font-bold">{s.emissionId}</td>
+                        <td className="px-4 py-3 text-sm text-violet-600 font-bold">
+                          <button
+                            onClick={() => setSettlementDetailEmissionId(s.emissionId)}
+                            className="hover:underline hover:text-violet-800 transition-colors cursor-pointer"
+                          >
+                            {s.emissionId}
+                          </button>
+                        </td>
                         <td className="px-4 py-3 text-sm font-medium text-slate-700">{s.company}</td>
                         <td className="px-4 py-3 text-xs text-slate-500">{s.category}</td>
                         <td className="px-4 py-3">
@@ -4555,6 +4584,113 @@ export default function App() {
                 </table>
               </div>
             </div>
+
+            {/* 배출신청별 상세 정산내역 모달 */}
+            {settlementDetailEmissionId && (() => {
+              const detailRecords = settlementByRole.filter(s => s.emissionId === settlementDetailEmissionId);
+              const detailRevenue = detailRecords.filter(s => s.amount > 0).reduce((a, s) => a + s.amount, 0);
+              const detailExpense = detailRecords.filter(s => s.amount < 0).reduce((a, s) => a + s.amount, 0);
+              const detailBalance = detailRevenue + detailExpense;
+              return (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSettlementDetailEmissionId(null)}>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {/* 모달 헤더 */}
+                    <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                          <FileSearch className="w-5 h-5 text-violet-600" />
+                          상세 정산내역
+                        </h3>
+                        <p className="text-sm text-slate-500 mt-1">배출신청번호: <span className="font-bold text-violet-600">{settlementDetailEmissionId}</span></p>
+                      </div>
+                      <button onClick={() => setSettlementDetailEmissionId(null)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                        <X className="w-4 h-4 text-slate-500" />
+                      </button>
+                    </div>
+
+                    {/* 요약 카드 */}
+                    <div className="p-6 border-b border-slate-100">
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-blue-50 rounded-xl p-4 text-center">
+                          <p className="text-xs font-bold text-blue-500 mb-1">매출 합계</p>
+                          <p className="text-lg font-black text-blue-700">+{detailRevenue.toLocaleString()}원</p>
+                          <p className="text-[11px] text-blue-400 mt-0.5">{detailRecords.filter(s => s.amount > 0).length}건</p>
+                        </div>
+                        <div className="bg-rose-50 rounded-xl p-4 text-center">
+                          <p className="text-xs font-bold text-rose-500 mb-1">매입 합계</p>
+                          <p className="text-lg font-black text-rose-700">{detailExpense.toLocaleString()}원</p>
+                          <p className="text-[11px] text-rose-400 mt-0.5">{detailRecords.filter(s => s.amount < 0).length}건</p>
+                        </div>
+                        <div className={cn("rounded-xl p-4 text-center", detailBalance >= 0 ? "bg-emerald-50" : "bg-rose-50")}>
+                          <p className={cn("text-xs font-bold mb-1", detailBalance >= 0 ? "text-emerald-500" : "text-rose-500")}>순이익</p>
+                          <p className={cn("text-lg font-black", detailBalance >= 0 ? "text-emerald-700" : "text-rose-700")}>
+                            {detailBalance >= 0 ? '+' : ''}{detailBalance.toLocaleString()}원
+                          </p>
+                          <p className={cn("text-[11px] mt-0.5", detailBalance >= 0 ? "text-emerald-400" : "text-rose-400")}>{detailBalance >= 0 ? '흑자' : '적자'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 상세 테이블 */}
+                    <div className="overflow-y-auto max-h-[40vh]">
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                          <tr>
+                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산번호</th>
+                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산유형</th>
+                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">거래처</th>
+                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">금액</th>
+                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">항목</th>
+                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산일</th>
+                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {detailRecords.map(s => (
+                            <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-3 text-sm font-bold text-slate-900">{s.id}</td>
+                              <td className="px-4 py-3">
+                                <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                  s.type === '매출' ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"
+                                )}>{s.category}</span>
+                              </td>
+                              <td className="px-4 py-3 text-sm font-medium text-slate-700">{s.company}</td>
+                              <td className={cn("px-4 py-3 text-sm font-bold", s.amount >= 0 ? "text-blue-600" : "text-rose-600")}>
+                                {s.amount >= 0 ? '+' : ''}{s.amount.toLocaleString()}원
+                              </td>
+                              <td className="px-4 py-3 text-sm text-slate-600">{s.items}</td>
+                              <td className="px-4 py-3 text-sm text-slate-600">{s.date}</td>
+                              <td className="px-4 py-3">
+                                <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                  s.status === '정산완료' ? "bg-emerald-100 text-emerald-700" :
+                                  s.status === '정산대기' ? "bg-amber-100 text-amber-700" :
+                                  "bg-slate-100 text-slate-600"
+                                )}>{s.status}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* 하단 */}
+                    <div className="p-4 border-t border-slate-200 flex justify-end">
+                      <button
+                        onClick={() => setSettlementDetailEmissionId(null)}
+                        className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all"
+                      >
+                        닫기
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              );
+            })()}
           </motion.div>
         );
       }
