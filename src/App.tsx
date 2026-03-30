@@ -4460,32 +4460,6 @@ export default function App() {
               </div>
             )}
 
-            {/* 요약 카드 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: '총 매출', value: `₩${(totalRevenue / 10000).toFixed(0)}만`, sub: `${settlementFiltered.filter(s => s.amount > 0).length}건`, icon: TrendingUp, color: 'blue' },
-                { label: '총 매입', value: `₩${(Math.abs(totalExpense) / 10000).toFixed(0)}만`, sub: `${settlementFiltered.filter(s => s.amount < 0).length}건`, icon: TrendingDown, color: 'rose' },
-                { label: '순이익', value: `₩${(totalBalance / 10000).toFixed(0)}만`, sub: totalBalance >= 0 ? '흑자' : '적자', icon: CircleDollarSign, color: totalBalance >= 0 ? 'emerald' : 'rose' },
-                { label: '정산 건수', value: `${settlementFiltered.length}건`, sub: `미정산 ${settlementFiltered.filter(s => s.status === '미정산').length}건`, icon: ClipboardList, color: 'slate' },
-              ].map((card, i) => (
-                <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center",
-                      card.color === 'blue' ? "bg-blue-50 text-blue-600" :
-                      card.color === 'rose' ? "bg-rose-50 text-rose-600" :
-                      card.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
-                      "bg-slate-100 text-slate-600"
-                    )}>
-                      <card.icon className="w-5 h-5" />
-                    </div>
-                    <span className="text-sm font-bold text-slate-500">{card.label}</span>
-                  </div>
-                  <p className="text-2xl font-black text-slate-900">{card.value}</p>
-                  <p className="text-xs font-bold text-slate-400 mt-1">{card.sub}</p>
-                </div>
-              ))}
-            </div>
-
             {/* 정산 내역 테이블 */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -4537,14 +4511,7 @@ export default function App() {
                     {settlementFiltered.map(s => (
                       <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3 text-sm font-bold text-slate-900">{s.id}</td>
-                        <td className="px-4 py-3 text-sm text-violet-600 font-bold">
-                          <button
-                            onClick={() => setSettlementDetailEmissionId(s.emissionId)}
-                            className="hover:underline hover:text-violet-800 transition-colors cursor-pointer"
-                          >
-                            {s.emissionId}
-                          </button>
-                        </td>
+                        <td className="px-4 py-3 text-sm text-violet-600 font-bold">{s.emissionId}</td>
                         <td className="px-4 py-3 text-sm font-medium text-slate-700">{s.company}</td>
                         <td className="px-4 py-3 text-xs text-slate-500">{s.category}</td>
                         <td className="px-4 py-3">
@@ -4585,112 +4552,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* 배출신청별 상세 정산내역 모달 */}
-            {settlementDetailEmissionId && (() => {
-              const detailRecords = settlementByRole.filter(s => s.emissionId === settlementDetailEmissionId);
-              const detailRevenue = detailRecords.filter(s => s.amount > 0).reduce((a, s) => a + s.amount, 0);
-              const detailExpense = detailRecords.filter(s => s.amount < 0).reduce((a, s) => a + s.amount, 0);
-              const detailBalance = detailRevenue + detailExpense;
-              return (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSettlementDetailEmissionId(null)}>
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    {/* 모달 헤더 */}
-                    <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                          <FileSearch className="w-5 h-5 text-violet-600" />
-                          상세 정산내역
-                        </h3>
-                        <p className="text-sm text-slate-500 mt-1">배출신청번호: <span className="font-bold text-violet-600">{settlementDetailEmissionId}</span></p>
-                      </div>
-                      <button onClick={() => setSettlementDetailEmissionId(null)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
-                        <X className="w-4 h-4 text-slate-500" />
-                      </button>
-                    </div>
-
-                    {/* 요약 카드 */}
-                    <div className="p-6 border-b border-slate-100">
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-blue-50 rounded-xl p-4 text-center">
-                          <p className="text-xs font-bold text-blue-500 mb-1">매출 합계</p>
-                          <p className="text-lg font-black text-blue-700">+{detailRevenue.toLocaleString()}원</p>
-                          <p className="text-[11px] text-blue-400 mt-0.5">{detailRecords.filter(s => s.amount > 0).length}건</p>
-                        </div>
-                        <div className="bg-rose-50 rounded-xl p-4 text-center">
-                          <p className="text-xs font-bold text-rose-500 mb-1">매입 합계</p>
-                          <p className="text-lg font-black text-rose-700">{detailExpense.toLocaleString()}원</p>
-                          <p className="text-[11px] text-rose-400 mt-0.5">{detailRecords.filter(s => s.amount < 0).length}건</p>
-                        </div>
-                        <div className={cn("rounded-xl p-4 text-center", detailBalance >= 0 ? "bg-emerald-50" : "bg-rose-50")}>
-                          <p className={cn("text-xs font-bold mb-1", detailBalance >= 0 ? "text-emerald-500" : "text-rose-500")}>순이익</p>
-                          <p className={cn("text-lg font-black", detailBalance >= 0 ? "text-emerald-700" : "text-rose-700")}>
-                            {detailBalance >= 0 ? '+' : ''}{detailBalance.toLocaleString()}원
-                          </p>
-                          <p className={cn("text-[11px] mt-0.5", detailBalance >= 0 ? "text-emerald-400" : "text-rose-400")}>{detailBalance >= 0 ? '흑자' : '적자'}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 상세 테이블 */}
-                    <div className="overflow-y-auto max-h-[40vh]">
-                      <table className="w-full text-left">
-                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
-                          <tr>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산번호</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산유형</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">거래처</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">금액</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">항목</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">정산일</th>
-                            <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {detailRecords.map(s => (
-                            <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-4 py-3 text-sm font-bold text-slate-900">{s.id}</td>
-                              <td className="px-4 py-3">
-                                <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                                  s.type === '매출' ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"
-                                )}>{s.category}</span>
-                              </td>
-                              <td className="px-4 py-3 text-sm font-medium text-slate-700">{s.company}</td>
-                              <td className={cn("px-4 py-3 text-sm font-bold", s.amount >= 0 ? "text-blue-600" : "text-rose-600")}>
-                                {s.amount >= 0 ? '+' : ''}{s.amount.toLocaleString()}원
-                              </td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{s.items}</td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{s.date}</td>
-                              <td className="px-4 py-3">
-                                <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                                  s.status === '정산완료' ? "bg-emerald-100 text-emerald-700" :
-                                  s.status === '정산대기' ? "bg-amber-100 text-amber-700" :
-                                  "bg-slate-100 text-slate-600"
-                                )}>{s.status}</span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* 하단 */}
-                    <div className="p-4 border-t border-slate-200 flex justify-end">
-                      <button
-                        onClick={() => setSettlementDetailEmissionId(null)}
-                        className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all"
-                      >
-                        닫기
-                      </button>
-                    </div>
-                  </motion.div>
-                </div>
-              );
-            })()}
           </motion.div>
         );
       }
