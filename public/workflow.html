@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K-ITAD 플랫폼 워크플로우</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: #f8fafc; color: #1e293b; padding: 40px 20px; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 32px; font-weight: 900; text-align: center; margin-bottom: 8px; }
+  .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 48px; }
+
+  /* ===== Section ===== */
+  .section { margin-bottom: 56px; }
+  .section-title { font-size: 22px; font-weight: 900; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
+  .section-title .badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 8px; }
+
+  /* ===== 전체 업무흐름도 ===== */
+  .main-flow { background: white; border-radius: 20px; border: 1px solid #e2e8f0; padding: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .flow-row { display: flex; align-items: stretch; gap: 0; margin-bottom: 0; position: relative; }
+  .flow-phase { flex: 1; text-align: center; padding: 18px 12px; position: relative; }
+  .flow-phase-label { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .flow-node { padding: 14px 10px; border-radius: 14px; font-size: 13px; font-weight: 700; position: relative; min-height: 52px; display: flex; align-items: center; justify-content: center; }
+  .flow-node.emitter { background: #eef2ff; color: #4338ca; border: 2px solid #c7d2fe; }
+  .flow-node.transporter { background: #f5f3ff; color: #6d28d9; border: 2px solid #ddd6fe; }
+  .flow-node.processor { background: #ecfdf5; color: #047857; border: 2px solid #a7f3d0; }
+  .flow-node.settlement { background: #fff7ed; color: #c2410c; border: 2px solid #fed7aa; }
+  .flow-node.allbaro { background: #f0f9ff; color: #0369a1; border: 2px solid #bae6fd; }
+  .flow-node.circulation { background: #f0fdf4; color: #15803d; border: 2px solid #bbf7d0; }
+  .flow-node.multi { background: #fefce8; color: #a16207; border: 2px solid #fde68a; }
+  .flow-arrow { display: flex; align-items: center; justify-content: center; width: 36px; flex-shrink: 0; font-size: 18px; color: #cbd5e1; }
+
+  /* ===== 세로 흐름 ===== */
+  .vertical-flow { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .v-arrow { color: #cbd5e1; font-size: 22px; line-height: 1; padding: 4px 0; }
+  .v-node { padding: 12px 28px; border-radius: 12px; font-size: 13px; font-weight: 700; text-align: center; min-width: 180px; }
+
+  /* ===== 역할별 워크플로우 카드 ===== */
+  .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .role-card { background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .role-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .role-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; color: white; }
+  .role-name { font-size: 18px; font-weight: 900; }
+  .role-company { font-size: 12px; color: #94a3b8; font-weight: 500; }
+  .menu-list { list-style: none; }
+  .menu-list li { padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .menu-list li:last-child { border-bottom: none; }
+  .menu-tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; flex-shrink: 0; }
+  .menu-tag.view { background: #dbeafe; color: #1d4ed8; }
+  .menu-tag.edit { background: #dcfce7; color: #15803d; }
+  .menu-tag.full { background: #fef3c7; color: #92400e; }
+  .menu-desc { color: #64748b; }
+
+  /* ===== 상태 전이도 ===== */
+  .status-flow-container { background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); overflow-x: auto; }
+  .status-row { display: flex; align-items: center; gap: 0; margin-bottom: 16px; flex-wrap: nowrap; }
+  .status-row:last-child { margin-bottom: 0; }
+  .status-label { width: 100px; font-size: 12px; font-weight: 700; color: #64748b; flex-shrink: 0; }
+  .status-nodes { display: flex; align-items: center; gap: 0; flex: 1; }
+  .s-node { padding: 8px 14px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .s-arrow { padding: 0 6px; color: #cbd5e1; font-size: 14px; }
+  .s-node.active { background: #dbeafe; color: #1d4ed8; border: 1.5px solid #93c5fd; }
+  .s-node.done { background: #dcfce7; color: #15803d; border: 1.5px solid #86efac; }
+  .s-node.wait { background: #fef9c3; color: #a16207; border: 1.5px solid #fde047; }
+  .s-node.error { background: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; }
+
+  /* ===== 전체 흐름도 (메인) ===== */
+  .master-flow { background: white; border-radius: 20px; border: 1px solid #e2e8f0; padding: 40px 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .mf-row { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 6px; }
+  .mf-node { padding: 14px 20px; border-radius: 14px; font-size: 13px; font-weight: 700; text-align: center; min-width: 140px; position: relative; }
+  .mf-arrow-h { padding: 0 10px; color: #94a3b8; font-size: 20px; }
+  .mf-arrow-v { text-align: center; color: #94a3b8; font-size: 20px; padding: 2px 0; }
+  .mf-role-tag { position: absolute; top: -8px; right: -4px; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #1e293b; color: white; }
+  .mf-branch { display: flex; align-items: flex-start; justify-content: center; gap: 24px; margin: 4px 0; }
+  .mf-branch-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+  /* ===== 범례 ===== */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #64748b; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 4px; }
+
+  @media (max-width: 768px) {
+    .role-grid { grid-template-columns: 1fr; }
+    .mf-node { min-width: 100px; font-size: 11px; padding: 10px 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>K-ITAD 플랫폼 업무흐름도</h1>
+<p class="subtitle">IT자산 배출 → 운송 → 데이터폐기 → 자산처리 → 정산 → 자원순환 전 과정 통합 관리</p>
+
+<!-- ===== 1. 전체 업무 흐름도 (메인 도식) ===== -->
+<div class="section">
+  <div class="section-title">
+    <span>📋</span> 전체 업무 흐름도 (End-to-End)
+    <span class="badge" style="background:#eef2ff;color:#4338ca;">MAIN FLOW</span>
+  </div>
+  <div class="master-flow">
+
+    <!-- Row 1: 배출신청 -->
+    <div class="mf-row">
+      <div class="mf-node emitter">
+        배출 신청<br><span style="font-size:10px;font-weight:500;color:#6366f1">5단계 등록 프로세스</span>
+        <span class="mf-role-tag">배출처</span>
+      </div>
+      <span class="mf-arrow-h">→</span>
+      <div class="mf-node emitter" style="background:#e0e7ff;">
+        접수 확인<br><span style="font-size:10px;font-weight:500;color:#6366f1">처리사 승인</span>
+        <span class="mf-role-tag" style="background:#047857;">처리사</span>
+      </div>
+      <span class="mf-arrow-h">→</span>
+      <div class="mf-node transporter">
+        배차 관리<br><span style="font-size:10px;font-weight:500;color:#7c3aed">캘린더 Drag&Drop</span>
+        <span class="mf-role-tag" style="background:#6d28d9;">운송회사</span>
+      </div>
+      <span class="mf-arrow-h">→</span>
+      <div class="mf-node transporter" style="background:#ede9fe;">
+        보안 운송<br><span style="font-size:10px;font-weight:500;color:#7c3aed">GPS + 봉인 추적</span>
+        <span class="mf-role-tag" style="background:#6d28d9;">운송회사</span>
+      </div>
+    </div>
+
+    <div class="mf-arrow-v">↓</div>
+
+    <!-- Row 2: 입고 + 데이터폐기 -->
+    <div class="mf-row">
+      <div class="mf-node processor">
+        입고 검수<br><span style="font-size:10px;font-weight:500;color:#059669">외관·동작 검사</span>
+        <span class="mf-role-tag" style="background:#047857;">처리사</span>
+      </div>
+      <span class="mf-arrow-h">→</span>
+      <div class="mf-node processor" style="background:#d1fae5;">
+        데이터 폐기<br><span style="font-size:10px;font-weight:500;color:#059669">NIST 800-88 / DoD</span>
+        <span class="mf-role-tag" style="background:#047857;">처리사</span>
+      </div>
+      <span class="mf-arrow-h">→</span>
+      <div class="mf-node processor" style="background:#a7f3d0;">
+        폐기 검증<br><span style="font-size:10px;font-weight:500;color:#047857">CoD 인증서 발급</span>
+        <span class="mf-role-tag" style="background:#047857;">처리사</span>
+      </div>
+    </div>
+
+    <div class="mf-arrow-v">↓</div>
+
+    <!-- Row 3: 자산처리 분기 -->
+    <div class="mf-row" style="margin-bottom:2px;">
+      <div class="mf-node processor" style="min-width:200px;">
+        자산 분해 &amp; 분류<br><span style="font-size:10px;font-weight:500;color:#059669">CPU·RAM·Storage·PCB 분리</span>
+        <span class="mf-role-tag" style="background:#047857;">처리사</span>
+      </div>
+    </div>
+
+    <div class="mf-arrow-v">↓</div>
+
+    <!-- 분기 3갈래 -->
+    <div class="mf-branch">
+      <div class="mf-branch-item">
+        <div class="mf-node" style="background:#dbeafe;color:#1d4ed8;border:2px solid #93c5fd;">
+          ♻️ 재사용<br><span style="font-size:10px;font-weight:500;">리퍼비시 판매</span>
+        </div>
+      </div>
+      <div class="mf-branch-item">
+        <div class="mf-node" style="background:#dcfce7;color:#15803d;border:2px solid #86efac;">
+          🔄 재활용<br><span style="font-size:10px;font-weight:500;">원자재 회수</span>
+        </div>
+      </div>
+      <div class="mf-branch-item">
+        <div class="mf-node" style="background:#fee2e2;color:#b91c1c;border:2px solid #fca5a5;">
+          🗑️ 폐기<br><span style="font-size:10px;font-weight:500;">소각·매립</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mf-arrow-v">↓</div>
+
+    <!-- Row 4: 정산 + 올바로 + 자원순환 -->
+    <div class="mf-row">
+      <div class="mf-node settlement">
+        정산 관리<br><span style="font-size:10px;font-weight:500;color:#ea580c">매입/매출·세금계산서</span>
+        <span class="mf-role-tag" style="background:#c2410c;">전 역할</span>
+      </div>
+      <span class="mf-arrow-h">→</span>
+      <div class="mf-node allbaro">
+        올바로 연동<br><span style="font-size:10px;font-weight:500;color:#0284c7">전자인계서 제출</span>
+        <span class="mf-role-tag" style="background:#0369a1;">처리사</span>
+      </div>
+      <span class="mf-arrow-h">→</span>
+      <div class="mf-node circulation">
+        자원 순환<br><span style="font-size:10px;font-weight:500;color:#16a34a">ESG 리포트</span>
+        <span class="mf-role-tag" style="background:#15803d;">전 역할</span>
+      </div>
+    </div>
+
+    <!-- 범례 -->
+    <div class="legend" style="margin-top:28px;">
+      <div class="legend-item"><div class="legend-dot" style="background:#eef2ff;border:1.5px solid #c7d2fe;"></div>배출처</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f5f3ff;border:1.5px solid #ddd6fe;"></div>운송회사</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ecfdf5;border:1.5px solid #a7f3d0;"></div>처리사</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fff7ed;border:1.5px solid #fed7aa;"></div>정산</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f0f9ff;border:1.5px solid #bae6fd;"></div>올바로</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f0fdf4;border:1.5px solid #bbf7d0;"></div>자원순환</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 2. 상태 전이도 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span>🔄</span> 상태 전이도 (Status Transitions)
+  </div>
+  <div class="status-flow-container">
+    <!-- 배출신청 -->
+    <div class="status-row">
+      <div class="status-label">배출신청</div>
+      <div class="status-nodes">
+        <div class="s-node wait">신청완료</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node active">접수확인</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node active">운송중</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node active">데이터폐기중</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node done">처리완료</div>
+      </div>
+    </div>
+    <!-- 운송 -->
+    <div class="status-row">
+      <div class="status-label">보안운송</div>
+      <div class="status-nodes">
+        <div class="s-node wait">배차대기</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node wait">상차완료</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node active">운송중</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node active">도착</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node active">하차검수</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node done">인수완료</div>
+      </div>
+    </div>
+    <!-- 데이터폐기 -->
+    <div class="status-row">
+      <div class="status-label">데이터폐기</div>
+      <div class="status-nodes">
+        <div class="s-node wait">배정대기</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node active">작업중</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node active">폐기수행</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node wait">검증대기</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node active">검증</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node done">완료</div>
+      </div>
+    </div>
+    <!-- 자산처리 -->
+    <div class="status-row">
+      <div class="status-label">자산처리</div>
+      <div class="status-nodes">
+        <div class="s-node wait">검수대기</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node done">검수완료</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node active">분해중</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node done">분해완료</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node" style="background:#dbeafe;color:#1d4ed8;border:1.5px solid #93c5fd;">재사용/재활용/폐기</div>
+      </div>
+    </div>
+    <!-- 정산 -->
+    <div class="status-row">
+      <div class="status-label">정산</div>
+      <div class="status-nodes">
+        <div class="s-node error">미정산</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node wait">정산대기</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node done">정산완료</div>
+      </div>
+    </div>
+    <!-- 올바로 -->
+    <div class="status-row">
+      <div class="status-label">올바로</div>
+      <div class="status-nodes">
+        <div class="s-node wait">제출대기</div>
+        <span class="s-arrow">→</span>
+        <div class="s-node done">제출완료</div>
+        <span class="s-arrow" style="color:#fca5a5;">↗</span>
+        <div class="s-node error">반려</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 3. 역할별 접근 권한 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span>👤</span> 역할별 메뉴 접근 권한 및 워크플로우
+  </div>
+  <div class="role-grid">
+
+    <!-- 배출처 -->
+    <div class="role-card">
+      <div class="role-header">
+        <div class="role-icon" style="background:linear-gradient(135deg,#6366f1,#4338ca);">배</div>
+        <div>
+          <div class="role-name">배출처 (Emitter)</div>
+          <div class="role-company">K-ITAD 전자</div>
+        </div>
+      </div>
+      <ul class="menu-list">
+        <li><span class="menu-tag edit">생성/수정</span> <strong>배출관리</strong> <span class="menu-desc">— 배출신청 5단계 등록, 수정/삭제, 예상정산금액</span></li>
+        <li><span class="menu-tag view">조회</span> <strong>운송관리</strong> <span class="menu-desc">— 실시간 Leaflet 지도 모니터링, 운송 알림</span></li>
+        <li><span class="menu-tag view">조회</span> <strong>정산관리</strong> <span class="menu-desc">— 자사 매입/매출 내역, 기간조회</span></li>
+        <li><span class="menu-tag view">조회</span> <strong>자원순환</strong> <span class="menu-desc">— 자사 순환율, 탄소절감, ESG 리포트</span></li>
+        <li><span class="menu-tag view">조회</span> <strong>올바로연동</strong> <span class="menu-desc">— 전자인계서 현황 확인</span></li>
+        <li><span class="menu-tag edit">관리</span> <strong>정보관리 / 설정</strong></li>
+      </ul>
+    </div>
+
+    <!-- 운송회사 -->
+    <div class="role-card">
+      <div class="role-header">
+        <div class="role-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">운</div>
+        <div>
+          <div class="role-name">운송회사 (Transporter)</div>
+          <div class="role-company">보안물류(주)</div>
+        </div>
+      </div>
+      <ul class="menu-list">
+        <li><span class="menu-tag edit">생성/수정</span> <strong>배차관리</strong> <span class="menu-desc">— 주간 캘린더 Drag&Drop, 기사/차량 배정</span></li>
+        <li><span class="menu-tag view">조회</span> <strong>운송모니터링</strong> <span class="menu-desc">— 실시간 지도, 봉인/GPS 추적</span></li>
+        <li><span class="menu-tag view">조회</span> <strong>정산관리</strong> <span class="menu-desc">— 운송비 매출 내역</span></li>
+        <li><span class="menu-tag view">조회</span> <strong>올바로연동</strong> <span class="menu-desc">— 전자인계서 현황</span></li>
+        <li><span class="menu-tag edit">관리</span> <strong>정보관리 / 설정</strong></li>
+      </ul>
+    </div>
+
+    <!-- 처리사 -->
+    <div class="role-card">
+      <div class="role-header">
+        <div class="role-icon" style="background:linear-gradient(135deg,#10b981,#047857);">처</div>
+        <div>
+          <div class="role-name">처리사 (Processor)</div>
+          <div class="role-company">ITAD 처리센터</div>
+        </div>
+      </div>
+      <ul class="menu-list">
+        <li><span class="menu-tag edit">승인</span> <strong>배출관리</strong> <span class="menu-desc">— 배출요청 접수 확인, 상태 변경</span></li>
+        <li><span class="menu-tag view">조회</span> <strong>운송관리</strong> <span class="menu-desc">— 배차현황 조회, 운송 모니터링</span></li>
+        <li><span class="menu-tag full">전체</span> <strong>데이터폐기</strong> <span class="menu-desc">— 폐기 작업 등록, 검증, CoD 발급</span></li>
+        <li><span class="menu-tag full">전체</span> <strong>자산처리</strong> <span class="menu-desc">— 입고검수, 분해, 부품 추적, 출하</span></li>
+        <li><span class="menu-tag edit">관리</span> <strong>정산관리</strong> <span class="menu-desc">— 전체 매입/매출, 세금계산서 발급</span></li>
+        <li><span class="menu-tag view">조회</span> <strong>자원순환</strong> <span class="menu-desc">— 전체 배출처 순환 성과, 회수가치</span></li>
+        <li><span class="menu-tag edit">제출</span> <strong>올바로연동</strong> <span class="menu-desc">— 전자인계서 작성/제출</span></li>
+      </ul>
+    </div>
+
+    <!-- 정부기관 -->
+    <div class="role-card" style="border-color:#fde68a;">
+      <div class="role-header">
+        <div class="role-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">정</div>
+        <div>
+          <div class="role-name">정부기관 (Government)</div>
+          <div class="role-company">환경부</div>
+        </div>
+      </div>
+      <ul class="menu-list">
+        <li><span class="menu-tag view">조회</span> <strong>자원순환</strong> <span class="menu-desc">— 전체 환경 성과 모니터링</span></li>
+        <li><span class="menu-tag view">조회</span> <strong>설정</strong></li>
+      </ul>
+    </div>
+
+    <!-- 협회관리자 (full width) -->
+  </div>
+
+  <div style="margin-top:20px;">
+    <div class="role-card" style="border-color:#94a3b8;">
+      <div class="role-header">
+        <div class="role-icon" style="background:linear-gradient(135deg,#64748b,#334155);">관</div>
+        <div>
+          <div class="role-name">협회관리자 (Admin)</div>
+          <div class="role-company">K-ITAD 협회</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;">
+        <ul class="menu-list">
+          <li><span class="menu-tag full">전체</span> <strong>배출관리</strong> <span class="menu-desc">— 전체 배출요청 통합 조회/관리</span></li>
+          <li><span class="menu-tag full">전체</span> <strong>운송관리</strong> <span class="menu-desc">— 배차현황 + 운송 모니터링</span></li>
+          <li><span class="menu-tag full">전체</span> <strong>데이터폐기</strong> <span class="menu-desc">— 전체 폐기 현황 조회</span></li>
+          <li><span class="menu-tag full">전체</span> <strong>자산처리</strong> <span class="menu-desc">— 전체 처리 현황 조회</span></li>
+        </ul>
+        <ul class="menu-list">
+          <li><span class="menu-tag full">전체</span> <strong>정산관리</strong> <span class="menu-desc">— 전체 정산 내역 통합 조회</span></li>
+          <li><span class="menu-tag full">전체</span> <strong>자원순환</strong> <span class="menu-desc">— 전체 배출처 순환 성과</span></li>
+          <li><span class="menu-tag full">전체</span> <strong>올바로연동</strong> <span class="menu-desc">— 전자인계서 통합 관리</span></li>
+          <li><span class="menu-tag full">전체</span> <strong>설정</strong> <span class="menu-desc">— 시스템 전체 설정</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 4. 정산 유형별 흐름 ===== -->
+<div class="section">
+  <div class="section-title">
+    <span>💰</span> 정산 유형별 자금 흐름
+  </div>
+  <div class="status-flow-container">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:2px solid #e2e8f0;">
+          <th style="text-align:left;padding:10px 12px;font-size:12px;color:#64748b;">정산유형</th>
+          <th style="text-align:left;padding:10px 12px;font-size:12px;color:#64748b;">지급자</th>
+          <th style="text-align:center;padding:10px 12px;font-size:12px;color:#64748b;">→</th>
+          <th style="text-align:left;padding:10px 12px;font-size:12px;color:#64748b;">수취자</th>
+          <th style="text-align:left;padding:10px 12px;font-size:12px;color:#64748b;">설명</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 12px;font-weight:700;">자산매입금</td>
+          <td style="padding:10px 12px;"><span style="background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">처리사</span></td>
+          <td style="padding:10px 12px;text-align:center;color:#94a3b8;">→</td>
+          <td style="padding:10px 12px;"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">배출처</span></td>
+          <td style="padding:10px 12px;color:#64748b;">자산 매각 대금</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 12px;font-weight:700;">보안운송비</td>
+          <td style="padding:10px 12px;"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">배출처</span></td>
+          <td style="padding:10px 12px;text-align:center;color:#94a3b8;">→</td>
+          <td style="padding:10px 12px;"><span style="background:#f5f3ff;color:#6d28d9;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">운송회사</span></td>
+          <td style="padding:10px 12px;color:#64748b;">보안 운송 서비스 비용</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 12px;font-weight:700;">재사용 판매</td>
+          <td style="padding:10px 12px;"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">유통사</span></td>
+          <td style="padding:10px 12px;text-align:center;color:#94a3b8;">→</td>
+          <td style="padding:10px 12px;"><span style="background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">처리사</span></td>
+          <td style="padding:10px 12px;color:#64748b;">리퍼비시 제품 판매 수익</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 12px;font-weight:700;">파분쇄</td>
+          <td style="padding:10px 12px;"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">파분쇄사</span></td>
+          <td style="padding:10px 12px;text-align:center;color:#94a3b8;">→</td>
+          <td style="padding:10px 12px;"><span style="background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">처리사</span></td>
+          <td style="padding:10px 12px;color:#64748b;">기판류 납품 수익</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 12px;font-weight:700;">재활용원료</td>
+          <td style="padding:10px 12px;"><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">제련사</span></td>
+          <td style="padding:10px 12px;text-align:center;color:#94a3b8;">→</td>
+          <td style="padding:10px 12px;"><span style="background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">처리사</span></td>
+          <td style="padding:10px 12px;color:#64748b;">금속류(구리/금/은) 회수 수익</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 12px;font-weight:700;">확인서 발급비</td>
+          <td style="padding:10px 12px;"><span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">배출처</span></td>
+          <td style="padding:10px 12px;text-align:center;color:#94a3b8;">→</td>
+          <td style="padding:10px 12px;"><span style="background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">처리사</span></td>
+          <td style="padding:10px 12px;color:#64748b;">CoD 인증서 발급 수수료</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:40px;">K-ITAD Platform Workflow v2.0 · 2026.03</p>
+
+</div>
+</body>
+</html>
