@@ -4401,39 +4401,22 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.98 }}
             className="space-y-6 pb-20"
           >
-            {/* 헤더 + 역할 전환 */}
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                  <Recycle className="w-8 h-8 text-emerald-600" />
-                  자원 순환
-                </h1>
-                <p className="text-slate-500 mt-1">
-                  {userRole === 'admin' ? '전체 배출처의 자원순환 성과를 통합 조회합니다.' : `${userCompany}의 배출건별 자원순환 성과를 확인합니다.`}
-                </p>
-              </div>
-              {/* 역할 전환 (데모용) */}
-              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
-                <button onClick={() => { setUserRole('emitter'); setUserCompany('K-ITAD 전자'); }}
-                  className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all",
-                    userRole === 'emitter' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500"
-                  )}>
-                  <User className="w-3 h-3 inline mr-1" />배출처
-                </button>
-                <button onClick={() => setUserRole('admin')}
-                  className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all",
-                    userRole === 'admin' ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500"
-                  )}>
-                  <ShieldCheck className="w-3 h-3 inline mr-1" />관리자
-                </button>
-              </div>
+            {/* 헤더 */}
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                <Recycle className="w-8 h-8 text-emerald-600" />
+                자원 순환
+              </h1>
+              <p className="text-slate-500 mt-1">
+                {(userRole === 'admin' || userRole === 'processor') ? '전체 배출처의 자원순환 성과를 통합 조회합니다.' : `${userCompany}의 배출건별 자원순환 성과를 확인합니다.`}
+              </p>
             </div>
 
-            {/* 관리자 모드: 배출처 선택 */}
-            {userRole === 'admin' && (
+            {/* 관리자/처리사 모드 안내 */}
+            {(userRole === 'admin' || userRole === 'processor') && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span className="text-xs font-bold text-emerald-700">관리자 모드</span>
+                <span className="text-xs font-bold text-emerald-700">{userRole === 'admin' ? '관리자' : '처리사'} 모드</span>
                 <span className="text-xs text-emerald-600">전체 배출처 데이터를 조회하고 있습니다.</span>
               </div>
             )}
@@ -4484,14 +4467,14 @@ export default function App() {
               {/* 배출건별 자원순환 현황 */}
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
                 <h3 className="text-sm font-bold text-slate-700 mb-4">
-                  {userRole === 'admin' ? '배출처별 자원순환 현황' : `${userCompany} 배출건별 현황`}
+                  {(userRole === 'admin' || userRole === 'processor') ? '배출처별 자원순환 현황' : `${userCompany} 배출건별 현황`}
                 </h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
                         <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">신청번호</th>
-                        {userRole === 'admin' && <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">배출처</th>}
+                        {(userRole === 'admin' || userRole === 'processor') && <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">배출처</th>}
                         <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">부서</th>
                         <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">자산</th>
                         <th className="px-3 py-2.5 text-xs font-bold text-slate-500 uppercase">재사용</th>
@@ -4505,7 +4488,7 @@ export default function App() {
                       {circEmissionSummary.map(e => (
                         <tr key={e.emissionId} className="hover:bg-slate-50 transition-colors">
                           <td className="px-3 py-2.5 text-sm font-bold text-slate-900">{e.emissionId}</td>
-                          {userRole === 'admin' && (
+                          {(userRole === 'admin' || userRole === 'processor') && (
                             <td className="px-3 py-2.5 text-sm font-medium text-slate-700">{e.company}</td>
                           )}
                           <td className="px-3 py-2.5 text-sm text-slate-500">{e.department}</td>
@@ -4521,7 +4504,7 @@ export default function App() {
                     {circEmissionSummary.length > 1 && (
                       <tfoot className="bg-slate-50 border-t-2 border-slate-300">
                         <tr>
-                          <td className="px-3 py-2.5 text-sm font-black text-slate-900" colSpan={userRole === 'admin' ? 3 : 2}>합계</td>
+                          <td className="px-3 py-2.5 text-sm font-black text-slate-900" colSpan={(userRole === 'admin' || userRole === 'processor') ? 3 : 2}>합계</td>
                           <td className="px-3 py-2.5 text-sm font-black text-slate-900">{circTotalAssets}</td>
                           <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded-md text-[11px] font-black">{circTotalReuse}</span></td>
                           <td className="px-3 py-2.5"><span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded-md text-[11px] font-black">{circTotalRecycle}</span></td>
