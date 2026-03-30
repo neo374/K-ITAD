@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/workflow.html", "destination": "/workflow.html" },
+    { "source": "/((?!assets|workflow\\.html).*)", "destination": "/index.html" }
+  ]
+}
