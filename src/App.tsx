@@ -1977,11 +1977,15 @@ export default function App() {
                 { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
                 { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
               ];
-            case 'admin':
             case 'government':
               return [
                 { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
                 { id: 'info' as const, label: '운송 정보', icon: FileText },
+                { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
+              ];
+            case 'admin':
+              return [
+                { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
                 { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
               ];
             default:
@@ -2722,384 +2726,182 @@ export default function App() {
               </>
             )}
 
-            {/* =================== TAB: 운송 모니터링 =================== */}
+            {/* =================== TAB: 운송 모니터링 (Leaflet 지도 통합 뷰) =================== */}
             {transportTab === 'monitoring' && userRole !== 'emitter' && (
               <>
-                {!currentTransportData ? (
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
-                    <Monitor className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-bold">운송 건을 선택하면 모니터링 화면이 표시됩니다.</p>
-                    {/* Transport list for selection */}
-                    <div className="mt-6 max-w-lg mx-auto space-y-2">
+                <div className="flex gap-0 rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white" style={{ height: 'calc(100vh - 280px)', minHeight: 500 }}>
+                  {/* 좌측: 배출요청건 목록 */}
+                  <div className="w-[320px] border-r border-slate-200 flex flex-col flex-shrink-0">
+                    <div className="p-4 border-b border-slate-100">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-bold text-slate-900">배출요청건 ({transportMonitorData.transports.length})</p>
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px]">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 bg-blue-500 rounded-full"></span><span className="font-bold text-blue-600">운송중 {transportMonitorData.transports.filter(t => t.status === '운송중').length}</span></span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 bg-emerald-500 rounded-full"></span><span className="font-bold text-emerald-600">완료 {transportMonitorData.transports.filter(t => t.status === '완료').length}</span></span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 bg-slate-300 rounded-full"></span><span className="font-bold text-slate-400">대기 {transportMonitorData.transports.filter(t => t.status !== '운송중' && t.status !== '완료').length}</span></span>
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
                       {transportMonitorData.transports.map(t => (
-                        <button
+                        <div
                           key={t.id}
-                          onClick={() => setSelectedTransport(t.id)}
-                          className="w-full p-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-xl text-left transition-all flex items-center justify-between"
+                          className={cn(
+                            "px-4 py-3.5 border-b border-slate-100 cursor-pointer transition-all",
+                            selectedTransport === t.id ? "bg-indigo-50 border-l-4 border-l-indigo-500" : "hover:bg-slate-50 border-l-4 border-l-transparent"
+                          )}
                         >
-                          <div>
-                            <span className="text-sm font-bold text-slate-900">{t.id}</span>
-                            <span className="text-xs text-slate-400 ml-2">{t.company} / {t.driver}</span>
+                          <div onClick={() => setSelectedTransport(t.id)}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-bold text-slate-900">{t.emissionId || t.id}</span>
+                              <span className={cn(
+                                'px-2 py-0.5 rounded-md text-[10px] font-bold',
+                                t.status === '운송중' ? 'bg-blue-100 text-blue-700' :
+                                t.status === '완료' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                              )}>{t.status}</span>
+                            </div>
+                            <p className="text-xs text-slate-600">{t.company}</p>
+                            <div className="flex items-center justify-between mt-1.5">
+                              <p className="text-[10px] text-slate-400">{t.vehicle} · {t.driver} · {t.assetCount}대</p>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setTransportDetailModal(t.id); }}
+                                className="text-[10px] text-indigo-600 font-bold hover:underline"
+                              >
+                                상세보기
+                              </button>
+                            </div>
                           </div>
-                          <span className={cn(
-                            'px-2 py-0.5 rounded-md text-[10px] font-bold',
-                            t.status === '운송중' ? 'bg-blue-100 text-blue-700' :
-                            t.status === '완료' ? 'bg-emerald-100 text-emerald-700' :
-                            'bg-slate-100 text-slate-500'
-                          )}>
-                            {t.status}
-                          </span>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* 타임라인 — horizontal step indicator */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                      <h3 className="text-base font-bold text-slate-900 mb-5 flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-indigo-600" />
-                        운송 타임라인 — {currentTransportData.id}
-                      </h3>
-                      <div className="flex items-center justify-between relative">
-                        {/* connecting line */}
-                        <div className="absolute top-[18px] left-6 right-6 h-0.5 bg-slate-200" />
-                        <div
-                          className="absolute top-[18px] left-6 h-0.5 bg-emerald-500 transition-all duration-700"
-                          style={{
-                            width: `${
-                              (() => {
-                                const steps = currentTransportData.timeline;
-                                const doneCount = steps.filter(s => s.done).length;
-                                if (doneCount === 0) return 0;
-                                if (doneCount >= steps.length) return 100;
-                                const pct = ((doneCount - 0.5) / (steps.length - 1)) * 100;
-                                return Math.min(pct, 100);
-                              })()
-                            }%`
-                          }}
-                        />
-                        {currentTransportData.timeline.map((step, i) => (
-                          <div key={i} className="flex flex-col items-center gap-2 relative z-10" style={{ flex: '1' }}>
-                            <div className={cn(
-                              'w-9 h-9 rounded-full flex items-center justify-center border-2 shadow-sm',
-                              step.done && step.active ? 'bg-indigo-600 border-indigo-600' :
-                              step.done ? 'bg-emerald-500 border-emerald-500' :
-                              'bg-white border-slate-200'
-                            )}>
-                              {step.done && !step.active && <Check className="w-4 h-4 text-white" />}
-                              {step.active && (
-                                <span className="w-3 h-3 rounded-full bg-white animate-pulse" />
-                              )}
-                              {!step.done && (
-                                <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-                              )}
-                            </div>
-                            <div className="text-center">
-                              <p className={cn(
-                                'text-xs font-bold',
-                                step.active ? 'text-indigo-600' : step.done ? 'text-slate-900' : 'text-slate-400'
-                              )}>
-                                {step.step}
-                              </p>
-                              <p className="text-[10px] text-slate-400">{step.time || '—'}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
 
-                    {/* Map + Alert sidebar */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      {/* SVG Map */}
-                      <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                            <Monitor className="w-4 h-4 text-indigo-600" />
-                            실시간 차량 위치
-                          </h3>
-                          <div className="flex items-center gap-4 text-xs font-bold">
-                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" /> TRN-00051</span>
-                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400 inline-block" /> TRN-00052</span>
-                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-indigo-500 inline-block" /> TRN-00053</span>
-                          </div>
-                        </div>
-                        <div className="relative h-[400px] bg-[#e8e4d8] overflow-hidden">
-                          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 420" preserveAspectRatio="xMidYMid slice">
-                            <rect width="800" height="420" fill="#e8e4d8" />
-                            {/* 서해 */}
-                            <path d="M 0 0 L 120 0 L 100 50 L 80 120 L 60 200 L 50 280 L 70 350 L 90 420 L 0 420 Z" fill="#b3d4e8" opacity="0.6" />
-                            {/* 한강 */}
-                            <path d="M 800 160 C 720 155, 650 170, 580 165 C 510 160, 450 175, 380 180 C 310 185, 240 170, 180 190 C 140 200, 110 210, 60 200" stroke="#a3c9e2" strokeWidth="14" fill="none" strokeLinecap="round" opacity="0.7" />
-                            <path d="M 800 160 C 720 155, 650 170, 580 165 C 510 160, 450 175, 380 180 C 310 185, 240 170, 180 190 C 140 200, 110 210, 60 200" stroke="#b8d8ed" strokeWidth="8" fill="none" strokeLinecap="round" opacity="0.5" />
-                            {/* 녹지 */}
-                            <ellipse cx="350" cy="70" rx="60" ry="35" fill="#c5d9a4" opacity="0.4" />
-                            <ellipse cx="680" cy="90" rx="50" ry="30" fill="#c5d9a4" opacity="0.35" />
-                            <ellipse cx="750" cy="380" rx="55" ry="30" fill="#c5d9a4" opacity="0.3" />
-                            {/* 고속도로 */}
-                            <path d="M 750 220 C 680 215, 600 210, 520 205 C 440 200, 350 195, 270 200 C 190 205, 140 210, 100 190" stroke="#f5d775" strokeWidth="8" fill="none" strokeLinecap="round" />
-                            <path d="M 750 220 C 680 215, 600 210, 520 205 C 440 200, 350 195, 270 200 C 190 205, 140 210, 100 190" stroke="#ffe599" strokeWidth="4" fill="none" strokeLinecap="round" />
-                            {/* 주요도로 */}
-                            <path d="M 550 150 L 550 250" stroke="#ffffff" strokeWidth="3" fill="none" />
-                            <path d="M 450 130 L 450 250" stroke="#ffffff" strokeWidth="3" fill="none" />
-                            <path d="M 350 120 L 350 260" stroke="#ffffff" strokeWidth="3" fill="none" />
-                            <path d="M 200 110 L 200 260" stroke="#ffffff" strokeWidth="3" fill="none" />
-                            <path d="M 300 140 L 650 140" stroke="#ffffff" strokeWidth="3" fill="none" />
-                            <path d="M 280 260 L 700 260" stroke="#ffffff" strokeWidth="3" fill="none" />
-                            {/* 지역 라벨 */}
-                            <text x="160" y="150" textAnchor="middle" fill="#8a7e6b" fontSize="16" fontWeight="bold" opacity="0.5">인천</text>
-                            <text x="550" y="195" textAnchor="middle" fill="#8a7e6b" fontSize="16" fontWeight="bold" opacity="0.5">서울</text>
-                            <text x="680" y="320" textAnchor="middle" fill="#8a7e6b" fontSize="14" fontWeight="bold" opacity="0.4">강남</text>
-                            <text x="720" y="395" textAnchor="middle" fill="#8a7e6b" fontSize="13" fontWeight="bold" opacity="0.4">성남/판교</text>
-                            {/* 운송 경로 */}
-                            {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
-                              const route = vehicleRoutes[t.id];
-                              if (!route) return null;
-                              const pts = route.path;
-                              const planned = `M ${pts[0][0]} ${pts[0][1]} ` + pts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ');
-                              const prog = vehicleAnimProgress[t.id] ?? 0;
-                              const totalSeg = pts.length - 1;
-                              const segF = prog * totalSeg;
-                              const segIdx = Math.min(Math.floor(segF), totalSeg - 1);
-                              const localT = segF - segIdx;
-                              const traveledPts = pts.slice(0, segIdx + 1);
-                              const midX = pts[segIdx][0] + (pts[segIdx + 1][0] - pts[segIdx][0]) * localT;
-                              const midY = pts[segIdx][1] + (pts[segIdx + 1][1] - pts[segIdx][1]) * localT;
-                              traveledPts.push([midX, midY]);
-                              const traveled = `M ${traveledPts[0][0]} ${traveledPts[0][1]} ` + traveledPts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ');
-                              return (
-                                <g key={t.id}>
-                                  <path d={planned} stroke={route.color} strokeWidth="3" fill="none" strokeDasharray="8,5" opacity="0.3" />
-                                  <path d={traveled} stroke={route.color} strokeWidth="3.5" fill="none" strokeLinecap="round" opacity="0.85" />
-                                </g>
-                              );
-                            })}
-                            {/* 도착지 마커 */}
-                            <circle cx="155" cy="108" r="18" fill="#6366f1" opacity="0.12">
-                              <animate attributeName="r" values="18;24;18" dur="3s" repeatCount="indefinite" />
-                            </circle>
-                            <circle cx="155" cy="108" r="10" fill="#6366f1" opacity="0.25" />
-                            <circle cx="155" cy="108" r="5" fill="#6366f1" />
-                            <text x="155" y="90" textAnchor="middle" fill="#4f46e5" fontSize="10" fontWeight="bold">ITAD 처리센터</text>
-                            {/* 출발지 마커들 */}
-                            {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
-                              const route = vehicleRoutes[t.id];
-                              if (!route) return null;
-                              const [sx, sy] = route.path[0];
-                              return (
-                                <g key={`start-${t.id}`}>
-                                  <circle cx={sx} cy={sy} r="6" fill="#ffffff" stroke={route.color} strokeWidth="2" />
-                                  <circle cx={sx} cy={sy} r="2.5" fill={route.color} />
-                                </g>
-                              );
-                            })}
-                            {/* 차량 마커들 */}
-                            {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
-                              const pos = getVehiclePos(t.id);
-                              const isSelectedVehicle = selectedTransport === t.id;
-                              const route = vehicleRoutes[t.id];
-                              const fillColor = route?.color ?? '#10b981';
-                              return (
-                                <g key={`vehicle-${t.id}`} style={{ cursor: 'pointer' }} onClick={() => setSelectedTransport(t.id)}>
-                                  {isSelectedVehicle && (
-                                    <>
-                                      <circle cx={pos.x} cy={pos.y} r="20" fill={fillColor} opacity="0.15">
-                                        <animate attributeName="r" values="20;30;20" dur="2s" repeatCount="indefinite" />
-                                        <animate attributeName="opacity" values="0.15;0.05;0.15" dur="2s" repeatCount="indefinite" />
-                                      </circle>
-                                      <circle cx={pos.x} cy={pos.y} r="16" fill="none" stroke={fillColor} strokeWidth="2" opacity="0.4">
-                                        <animate attributeName="r" values="16;22;16" dur="2s" repeatCount="indefinite" />
-                                        <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="indefinite" />
-                                      </circle>
-                                    </>
-                                  )}
-                                  <circle cx={pos.x} cy={pos.y} r="14" fill={fillColor} stroke="#ffffff" strokeWidth="3" />
-                                  <g transform={`translate(${pos.x - 7}, ${pos.y - 6})`}>
-                                    <rect x="0" y="4" width="10" height="7" rx="1" fill="#ffffff" opacity="0.9" />
-                                    <path d="M 10 6 L 13 6 L 14 9 L 14 11 L 10 11 Z" fill="#ffffff" opacity="0.9" />
-                                    <circle cx="3" cy="12" r="1.5" fill={fillColor} stroke="#ffffff" strokeWidth="0.5" />
-                                    <circle cx="12" cy="12" r="1.5" fill={fillColor} stroke="#ffffff" strokeWidth="0.5" />
-                                  </g>
-                                  <rect x={pos.x - 30} y={pos.y - 30} width="60" height="16" rx="4" fill="rgba(15,23,42,0.85)" />
-                                  <text x={pos.x} y={pos.y - 19} textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold">
-                                    {t.id.replace('TRN-2026-', '')} · {t.driver}
-                                  </text>
-                                </g>
-                              );
-                            })}
-                            {/* 완료 차량 */}
-                            {transportMonitorData.transports.filter(t => t.status === '완료').map((t, i) => (
-                              <g key={`done-${t.id}`}>
-                                <circle cx={140 + i * 25} cy={130 + i * 10} r="8" fill="#94a3b8" stroke="#ffffff" strokeWidth="2" />
-                                <path d={`M ${135 + i * 25} ${130 + i * 10} L ${139 + i * 25} ${134 + i * 10} L ${146 + i * 25} ${126 + i * 10}`} stroke="#ffffff" strokeWidth="2" fill="none" strokeLinecap="round" />
-                              </g>
-                            ))}
-                          </svg>
-                          {/* 진행률 오버레이 */}
-                          <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border border-slate-200/50">
-                            <div className="space-y-1.5">
-                              {transportMonitorData.transports.filter(t => t.status === '운송중').map(t => {
-                                const prog = Math.round((vehicleAnimProgress[t.id] ?? 0) * 100);
-                                const route = vehicleRoutes[t.id];
-                                return (
-                                  <div key={t.id} className="flex items-center gap-2 text-[10px]">
-                                    <span className="font-bold text-slate-600 w-10">{t.id.replace('TRN-2026-', '')}</span>
-                                    <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${prog}%`, backgroundColor: route?.color ?? '#10b981' }} />
-                                    </div>
-                                    <span className="font-bold text-slate-500 w-7 text-right">{prog}%</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                  {/* 우측: Leaflet 실제 지도 */}
+                  <div className="flex-1 relative">
+                    <div
+                      id="other-role-transport-map"
+                      className="w-full h-full"
+                      style={{ zIndex: 0 }}
+                      ref={(el) => {
+                        if (!el || (el as any).__leaflet_map) return;
+                        const L = (window as any).L;
+                        if (!L) return;
+                        const map = L.map(el, { zoomControl: false }).setView([37.35, 127.1], 10);
+                        L.control.zoom({ position: 'bottomright' }).addTo(map);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                          attribution: '&copy; OpenStreetMap',
+                          maxZoom: 18,
+                        }).addTo(map);
 
-                      {/* Alert log sidebar */}
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                        <div className="p-4 border-b border-slate-100 flex items-center gap-2">
-                          <Bell className="w-4 h-4 text-indigo-600" />
-                          <h3 className="text-base font-bold text-slate-900">알림 로그</h3>
-                          {transportMonitorData.alerts.length > 0 && (
-                            <span className="ml-auto bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full">
-                              {transportMonitorData.alerts.length}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-                          {transportMonitorData.alerts.length === 0 ? (
-                            <div className="p-6 text-center text-slate-400 text-sm">현재 알림이 없습니다.</div>
-                          ) : (
-                            transportMonitorData.alerts.map(alert => (
-                              <div key={alert.id} className="px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors">
-                                <div className={cn(
-                                  'w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5',
-                                  alert.severity === 'critical' ? 'bg-rose-100' :
-                                  alert.severity === 'warning' ? 'bg-amber-100' :
-                                  'bg-emerald-100'
-                                )}>
-                                  {alert.severity === 'critical' ? (
-                                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                                  ) : alert.severity === 'warning' ? (
-                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                                  ) : (
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-bold text-slate-900">{alert.type}</p>
-                                  <p className="text-xs text-slate-500 truncate">{alert.transport}</p>
-                                </div>
-                                <span className="text-[10px] text-slate-400 font-bold shrink-0">{alert.time}</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                        {/* 운송 상세 보안 정보 */}
-                        <div className="border-t border-slate-100 p-4 space-y-3 bg-slate-50/50">
-                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">보안 상태</h4>
-                          {[
-                            { label: '봉인 상태', value: currentTransportData.sealStatus, ok: currentTransportData.sealStatus === '정상' },
-                            { label: '경로 준수', value: '정상', ok: true },
-                            { label: '차량 잠금', value: '잠금', ok: true },
-                          ].map((sec, i) => (
-                            <div key={i} className="flex items-center justify-between text-sm">
-                              <span className="text-slate-500">{sec.label}</span>
-                              <span className={cn(
-                                'px-2 py-0.5 rounded-md text-[11px] font-bold',
-                                sec.ok ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                              )}>
-                                {sec.value}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                        const startLatLng: [number, number] = [37.5087, 127.0632];
+                        const endLatLng: [number, number] = [37.2411, 127.1775];
 
-                    {/* 운송 목록 테이블 */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                      <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-                        <h3 className="text-base font-bold text-slate-900">운송 목록</h3>
-                        <div className="flex bg-slate-100 p-1 rounded-xl">
-                          {['전체', '운송중', '완료', '예정'].map(f => (
-                            <button
-                              key={f}
-                              onClick={() => setTransportFilter(f)}
-                              className={cn(
-                                'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                                transportFilter === f ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                              )}
-                            >
-                              {f}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                          <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">운송번호</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">배출신청번호</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">출발지 / 도착지</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">자산 수량</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">현재 상태</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">봉인 상태</th>
-                              <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">예상 도착</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {transportMonitorData.transports
-                              .filter(t => transportFilter === '전체' || t.status === transportFilter)
-                              .map(t => (
-                                <tr
-                                  key={t.id}
-                                  onClick={() => setSelectedTransport(t.id)}
-                                  className={cn(
-                                    'cursor-pointer transition-colors hover:bg-indigo-50/50',
-                                    selectedTransport === t.id ? 'bg-indigo-50/70' : ''
-                                  )}
-                                >
-                                  <td className="px-5 py-3 text-sm font-bold text-slate-900">{t.id}</td>
-                                  <td className="px-5 py-3 text-sm text-indigo-600 font-bold">{t.emissionId}</td>
-                                  <td className="px-5 py-3 text-sm text-slate-600">
-                                    <span className="truncate max-w-[100px] inline-block">{t.from.split(' ').slice(0, 2).join(' ')}</span>
-                                    <span className="text-slate-400 mx-1">→</span>
-                                    <span>{t.to.split(' ').slice(-1)}</span>
-                                  </td>
-                                  <td className="px-5 py-3 text-sm">
-                                    <span className="font-bold text-slate-900">{t.assetCount}대</span>
-                                    <span className="text-slate-400 text-xs ml-1">(일치 {t.matchedCount})</span>
-                                  </td>
-                                  <td className="px-5 py-3">
-                                    <span className={cn(
-                                      'px-2.5 py-1 rounded-lg text-[11px] font-bold',
-                                      t.status === '운송중' ? 'bg-blue-100 text-blue-700' :
-                                      t.status === '완료' ? 'bg-emerald-100 text-emerald-700' :
-                                      'bg-slate-100 text-slate-500'
-                                    )}>
-                                      {t.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-5 py-3">
-                                    <span className={cn(
-                                      'px-2.5 py-1 rounded-lg text-[11px] font-bold',
-                                      t.sealStatus === '정상' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                                    )}>
-                                      {t.sealStatus}
-                                    </span>
-                                  </td>
-                                  <td className="px-5 py-3 text-sm text-slate-600 font-bold">{t.estimatedArrival}</td>
-                                </tr>
-                              ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                        const createIcon = (color: string, label: string) =>
+                          L.divIcon({
+                            className: '',
+                            html: `<div style="width:28px;height:28px;background:${color};border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:10px;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${label}</div>`,
+                            iconSize: [28, 28],
+                            iconAnchor: [14, 14],
+                          });
+
+                        L.marker(startLatLng, { icon: createIcon('#10b981', 'S') }).addTo(map).bindPopup('<b>출발지</b><br>서울 강남구 테헤란로 521');
+                        L.marker(endLatLng, { icon: createIcon('#ef4444', 'E') }).addTo(map).bindPopup('<b>ITAD 처리센터</b><br>경기 용인시 처인구');
+
+                        const routePoints: [number, number][] = [
+                          startLatLng, [37.48, 127.08], [37.44, 127.10], [37.40, 127.12],
+                          [37.36, 127.14], [37.32, 127.16], [37.28, 127.17], endLatLng,
+                        ];
+                        L.polyline(routePoints, { color: '#1e293b', weight: 7, opacity: 0.3, lineCap: 'round', lineJoin: 'round' }).addTo(map);
+                        L.polyline(routePoints, { color: '#4f46e5', weight: 5, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(map);
+
+                        const vehiclePositions: [number, number][] = [
+                          [37.45, 127.09], [37.40, 127.11], [37.36, 127.13], [37.48, 127.07], [37.30, 127.16],
+                        ];
+                        const statusColors: Record<string, string> = { '운송중': '#3b82f6', '완료': '#10b981' };
+                        transportMonitorData.transports.forEach((t: any, i: number) => {
+                          const pos = vehiclePositions[i % vehiclePositions.length];
+                          const color = statusColors[t.status] || '#94a3b8';
+                          const marker = L.marker(pos, {
+                            icon: createIcon(color, String(i + 1)),
+                          }).addTo(map);
+                          marker.bindPopup(`<b>${t.emissionId || t.id}</b><br>${t.company}<br>${t.vehicle} · ${t.driver}<br>상태: ${t.status}`);
+                          marker.on('click', () => setSelectedTransport(t.id));
+                        });
+
+                        (el as any).__leaflet_map = map;
+                        setTimeout(() => map.invalidateSize(), 200);
+                      }}
+                    ></div>
                   </div>
-                )}
+                </div>
+
+                {/* 운송 알림 */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-indigo-600" />
+                      운송 알림
+                    </h3>
+                    <span className="text-[10px] text-slate-400">최근 24시간</span>
+                  </div>
+                  <div className="divide-y divide-slate-100 max-h-[200px] overflow-y-auto">
+                    {[
+                      { time: '14:32', type: '경로이탈', msg: 'DSP-2026-00123: 설정 경로에서 1.2km 이탈 감지', level: 'danger' },
+                      { time: '13:15', type: '상차완료', msg: 'DSP-2026-00124: K-ITAD 전자 상차 완료, 운송 시작', level: 'info' },
+                      { time: '11:40', type: '배차확정', msg: 'DSP-2026-00125: 박운송 기사 배정 완료 (서울12가3456)', level: 'info' },
+                      { time: '10:05', type: '도착완료', msg: 'DSP-2026-00122: ITAD 처리센터 도착, 하차 대기중', level: 'success' },
+                      { time: '09:30', type: '운송지연', msg: 'DSP-2026-00121: 예상 도착시간 대비 25분 지연', level: 'warning' },
+                      { time: '08:50', type: '인수완료', msg: 'DSP-2026-00120: 하차 인수인계 완료, 봉인 정상', level: 'success' },
+                    ].map((n, i) => (
+                      <div key={i} className="px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors">
+                        <span className="text-[10px] text-slate-400 font-mono w-10 flex-shrink-0 pt-0.5">{n.time}</span>
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-md text-[10px] font-bold flex-shrink-0",
+                          n.level === 'danger' ? "bg-rose-100 text-rose-700" :
+                          n.level === 'warning' ? "bg-amber-100 text-amber-700" :
+                          n.level === 'success' ? "bg-emerald-100 text-emerald-700" :
+                          "bg-blue-100 text-blue-700"
+                        )}>{n.type}</span>
+                        <p className="text-xs text-slate-600 leading-relaxed">{n.msg}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 상세정보 모달 */}
+                {transportDetailModal && (() => {
+                  const detail = transportMonitorData.transports.find(t => t.id === transportDetailModal);
+                  if (!detail) return null;
+                  return (
+                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center" style={{ zIndex: 9999 }} onClick={() => setTransportDetailModal(null)}>
+                      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-black text-slate-900">운송 상세정보</h3>
+                          <button onClick={() => setTransportDetailModal(null)} className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200"><X className="w-4 h-4 text-slate-500" /></button>
+                        </div>
+                        <div className="space-y-0">
+                          {[
+                            { label: '배출신청번호', value: detail.emissionId || detail.id },
+                            { label: '운송회사', value: detail.company },
+                            { label: '운전자', value: detail.driver },
+                            { label: '차량번호', value: detail.vehicle },
+                            { label: '자산수', value: `${detail.assetCount}대` },
+                            { label: '운송상태', value: detail.status },
+                            { label: '출발지', value: detail.from || '서울 강남구 테헤란로' },
+                            { label: '도착지', value: detail.to || '경기 용인시 ITAD센터' },
+                            { label: '봉인번호', value: detail.sealNumber, mono: true },
+                            { label: '봉인상태', value: detail.sealStatus || '정상' },
+                          ].map((row, i) => (
+                            <div key={i} className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0">
+                              <span className="text-sm text-slate-500">{row.label}</span>
+                              <span className={cn("text-sm font-bold text-slate-900", row.mono && "font-mono text-purple-700")}>{row.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </>
             )}
           </motion.div>
