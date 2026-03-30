@@ -352,6 +352,8 @@ export default function App() {
   // Calendar dispatch state
   const [calendarAssignments, setCalendarAssignments] = useState<Record<string, { requestId: string; company: string; assetSummary: string }>>({});
   const [draggedRequest, setDraggedRequest] = useState<string | null>(null);
+  const [dispatchDetailModal, setDispatchDetailModal] = useState<string | null>(null);
+  const [driverDetailModal, setDriverDetailModal] = useState<string | null>(null);
   const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
 
   const dispatchableEmissions = emissionRequests.filter(e => ['신청완료', '승인대기', '운송중'].includes(e.status));
@@ -1928,9 +1930,9 @@ export default function App() {
 
         // Calendar driver data
         const calendarDrivers = [
-          { name: '박운송', vehicle: '서울12가3456' },
-          { name: '김기사', vehicle: '경기34나7890' },
-          { name: '이운전', vehicle: '서울56다1234' },
+          { name: '박운송', vehicle: '서울12가3456', phone: '010-1111-2222', license: '1종 대형', licenseNo: '11-23-456789-01', vehicleType: '5톤 윙바디', vehicleYear: '2023', insurance: '삼성화재 (영업배상 5억)', photo: '' },
+          { name: '김기사', vehicle: '경기34나7890', phone: '010-3333-4444', license: '1종 대형', licenseNo: '22-34-567890-02', vehicleType: '3.5톤 탑차', vehicleYear: '2024', insurance: '현대해상 (영업배상 5억)', photo: '' },
+          { name: '이운전', vehicle: '서울56다1234', phone: '010-5555-6666', license: '1종 보통', licenseNo: '33-45-678901-03', vehicleType: '1톤 탑차', vehicleYear: '2022', insurance: 'DB손해보험 (영업배상 3억)', photo: '' },
         ];
 
         // Generate Mon-Fri of current week with offset
@@ -2246,6 +2248,7 @@ export default function App() {
               <div className="space-y-6">
                 {userRole === 'transporter' ? (
                   /* ===== TRANSPORTER: Calendar Drag & Drop ===== */
+                  <>
                   <div className="flex gap-4" style={{ minHeight: 520 }}>
                     {/* LEFT PANEL: Request list (25%) */}
                     <div className="w-[25%] min-w-[240px] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
@@ -2310,11 +2313,19 @@ export default function App() {
                               </div>
                               <p className="text-sm font-bold text-slate-900 truncate">{e.company}</p>
                               <p className="text-xs text-slate-500 truncate">{e.assetSummary}</p>
-                              <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400">
-                                <Clock className="w-3 h-3" />
-                                <span>{e.collectionDate}</span>
-                                <span className="text-slate-300">|</span>
-                                <span>{e.assetCount}대</span>
+                              <div className="flex items-center justify-between mt-1.5">
+                                <div className="flex items-center gap-2 text-xs text-slate-400">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{e.collectionDate}</span>
+                                  <span className="text-slate-300">|</span>
+                                  <span>{e.assetCount}대</span>
+                                </div>
+                                <button
+                                  onClick={(ev) => { ev.stopPropagation(); setDispatchDetailModal(e.id); }}
+                                  className="text-[10px] text-indigo-600 font-bold hover:underline"
+                                >
+                                  상세보기
+                                </button>
                               </div>
                             </div>
                           );
@@ -2346,7 +2357,7 @@ export default function App() {
                               onClick={() => setCalendarWeekOffset(0)}
                               className="px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-colors"
                             >
-                              이번 주
+                              {weekDates.length > 0 ? `${weekDates[0].date.getMonth() + 1}/${weekDates[0].date.getDate()} ~ ${weekDates[weekDates.length - 1].date.getMonth() + 1}/${weekDates[weekDates.length - 1].date.getDate()}${calendarWeekOffset === 0 ? ' (이번 주)' : calendarWeekOffset === 1 ? ' (다음 주)' : calendarWeekOffset === -1 ? ' (지난 주)' : ''}` : '이번 주'}
                             </button>
                             <button
                               onClick={() => setCalendarWeekOffset(calendarWeekOffset + 1)}
@@ -2385,9 +2396,14 @@ export default function App() {
                           <tbody>
                             {calendarDrivers.map(driver => (
                               <tr key={driver.name}>
-                                <td className="sticky left-0 z-10 bg-white px-3 py-4 border-b border-r border-slate-100">
-                                  <p className="text-sm font-bold text-slate-900">{driver.name}</p>
-                                  <p className="text-[10px] text-slate-400 font-mono">{driver.vehicle}</p>
+                                <td className="sticky left-0 z-10 bg-white px-3 py-5 border-b border-r border-slate-100">
+                                  <button
+                                    onClick={() => setDriverDetailModal(driver.name)}
+                                    className="text-left hover:bg-indigo-50 rounded-lg px-2 py-1 -mx-2 -my-1 transition-colors"
+                                  >
+                                    <p className="text-sm font-bold text-indigo-600 hover:underline">{driver.name}</p>
+                                    <p className="text-[10px] text-slate-400 font-mono">{driver.vehicle}</p>
+                                  </button>
                                 </td>
                                 {weekDates.map(d => {
                                   const cellKey = `${driver.name}__${d.key}`;
@@ -2445,7 +2461,7 @@ export default function App() {
                                           <p className="text-[10px] text-slate-400 truncate mt-0.5">{assignment.assetSummary}</p>
                                         </div>
                                       ) : (
-                                        <div className="h-[64px] rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center">
+                                        <div className="h-[84px] rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center">
                                           <span className="text-[10px] text-slate-300">드롭</span>
                                         </div>
                                       )}
@@ -2470,6 +2486,208 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+
+                  {/* 배차요청 상세정보 모달 */}
+                  {dispatchDetailModal && (() => {
+                    const detail = dispatchableEmissions.find(e => e.id === dispatchDetailModal);
+                    if (!detail) return null;
+                    // Mock 물품정보
+                    const itemDetails = [
+                      { type: '서버', model: 'Dell PowerEdge R740', qty: 2, width: '48cm', height: '17cm', note: '랙마운트형' },
+                      { type: '노트북', model: 'Dell Latitude 5520', qty: 4, width: '34cm', height: '24cm', note: '' },
+                      { type: '데스크탑', model: 'HP EliteDesk 800', qty: (detail.assetCount - 6 > 0 ? detail.assetCount - 6 : 2), width: '17cm', height: '34cm', note: '모니터 별도' },
+                    ];
+                    return (
+                      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setDispatchDetailModal(null)}>
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {/* 헤더 */}
+                          <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+                            <div>
+                              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <ClipboardList className="w-5 h-5 text-indigo-600" />
+                                배차요청 상세정보
+                              </h3>
+                              <p className="text-sm text-slate-500 mt-1">신청번호: <span className="font-bold text-indigo-600">{detail.id}</span></p>
+                            </div>
+                            <button onClick={() => setDispatchDetailModal(null)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                              <X className="w-4 h-4 text-slate-500" />
+                            </button>
+                          </div>
+
+                          <div className="overflow-y-auto max-h-[calc(85vh-140px)]">
+                            {/* 기본 정보 */}
+                            <div className="p-6 space-y-3 border-b border-slate-100">
+                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-500" /> 수거/폐기 정보</h4>
+                              <div className="grid grid-cols-2 gap-3">
+                                {[
+                                  { label: '요청일', value: detail.createdAt.split(' ')[0] },
+                                  { label: '수거 희망일', value: detail.collectionDate },
+                                  { label: '신청업체', value: detail.company },
+                                  { label: '담당자', value: `${detail.applicant} (${detail.department})` },
+                                  { label: '연락처', value: detail.contact },
+                                  { label: '처리방식', value: detail.processing },
+                                ].map((row, i) => (
+                                  <div key={i} className="flex flex-col">
+                                    <span className="text-[11px] text-slate-400 font-bold">{row.label}</span>
+                                    <span className="text-sm font-bold text-slate-900">{row.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* 상차지/하차지 */}
+                            <div className="p-6 space-y-3 border-b border-slate-100">
+                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2"><MapPin className="w-4 h-4 text-indigo-500" /> 상차지 / 하차지</h4>
+                              <div className="grid grid-cols-1 gap-3">
+                                <div className="bg-blue-50 rounded-xl p-3">
+                                  <span className="text-[11px] font-bold text-blue-500">상차지 (수거)</span>
+                                  <p className="text-sm font-bold text-slate-900 mt-0.5">{detail.address}</p>
+                                </div>
+                                <div className="bg-emerald-50 rounded-xl p-3">
+                                  <span className="text-[11px] font-bold text-emerald-500">하차지 (센터)</span>
+                                  <p className="text-sm font-bold text-slate-900 mt-0.5">경기 용인시 처인구 ITAD 처리센터</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* 물품정보 */}
+                            <div className="p-6 space-y-3 border-b border-slate-100">
+                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Package className="w-4 h-4 text-indigo-500" /> 물품정보</h4>
+                              <p className="text-xs text-slate-500">총 {detail.assetCount}대 · {detail.totalWeight}</p>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                  <thead className="bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                      <th className="px-3 py-2 text-[11px] font-bold text-slate-500">분류</th>
+                                      <th className="px-3 py-2 text-[11px] font-bold text-slate-500">모델명</th>
+                                      <th className="px-3 py-2 text-[11px] font-bold text-slate-500">수량</th>
+                                      <th className="px-3 py-2 text-[11px] font-bold text-slate-500">부피 (가로×세로)</th>
+                                      <th className="px-3 py-2 text-[11px] font-bold text-slate-500">비고</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {itemDetails.map((item, i) => (
+                                      <tr key={i} className="hover:bg-slate-50">
+                                        <td className="px-3 py-2 text-sm font-bold text-slate-900">{item.type}</td>
+                                        <td className="px-3 py-2 text-sm text-slate-700">{item.model}</td>
+                                        <td className="px-3 py-2 text-sm font-bold text-indigo-600">{item.qty}대</td>
+                                        <td className="px-3 py-2 text-sm text-slate-600">{item.width} × {item.height}</td>
+                                        <td className="px-3 py-2 text-xs text-slate-400">{item.note || '—'}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+
+                            {/* 물품 사진 */}
+                            <div className="p-6 space-y-3 border-b border-slate-100">
+                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Camera className="w-4 h-4 text-indigo-500" /> 수거/폐기 물품사진</h4>
+                              <div className="grid grid-cols-3 gap-3">
+                                {[1, 2, 3].map(i => (
+                                  <div key={i} className="aspect-[4/3] bg-slate-100 rounded-xl flex items-center justify-center border border-slate-200">
+                                    <div className="text-center">
+                                      <Image className="w-8 h-8 text-slate-300 mx-auto" />
+                                      <p className="text-[10px] text-slate-400 mt-1">사진 {i}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* 특이사항 */}
+                            <div className="p-6">
+                              <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-2"><MessageSquare className="w-4 h-4 text-indigo-500" /> 특이사항 (메모)</h4>
+                              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                                {detail.securityGrade === '기밀' ? '보안등급 기밀 — 반드시 봉인 운송 필수. 엘리베이터 사용 불가, 화물용 승강기 이용 요청.' : detail.securityGrade === '중요' ? '서버실 출입 시 방문자 등록 필요. 주차 가능. 하역장 B동 이용.' : '특이사항 없음.'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 하단 */}
+                          <div className="p-4 border-t border-slate-200 flex justify-end">
+                            <button onClick={() => setDispatchDetailModal(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all">닫기</button>
+                          </div>
+                        </motion.div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 기사 상세정보 모달 */}
+                  {driverDetailModal && (() => {
+                    const driver = calendarDrivers.find(d => d.name === driverDetailModal);
+                    if (!driver) return null;
+                    return (
+                      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setDriverDetailModal(null)}>
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {/* 헤더 */}
+                          <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                              <User className="w-5 h-5 text-indigo-600" />
+                              기사 / 차량 정보
+                            </h3>
+                            <button onClick={() => setDriverDetailModal(null)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                              <X className="w-4 h-4 text-slate-500" />
+                            </button>
+                          </div>
+
+                          <div className="p-6 space-y-5">
+                            {/* 기사 정보 */}
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">기사 신상정보</h4>
+                              <div className="space-y-0">
+                                {[
+                                  { label: '기사명', value: driver.name },
+                                  { label: '연락처', value: driver.phone },
+                                  { label: '면허종별', value: driver.license },
+                                  { label: '면허번호', value: driver.licenseNo, mono: true },
+                                ].map((row, i) => (
+                                  <div key={i} className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0">
+                                    <span className="text-sm text-slate-500">{row.label}</span>
+                                    <span className={cn("text-sm font-bold text-slate-900", row.mono && "font-mono text-purple-700")}>{row.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* 차량 정보 */}
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">차량 정보</h4>
+                              <div className="space-y-0">
+                                {[
+                                  { label: '차량번호', value: driver.vehicle, mono: true },
+                                  { label: '차량종류', value: driver.vehicleType },
+                                  { label: '연식', value: `${driver.vehicleYear}년` },
+                                  { label: '보험', value: driver.insurance },
+                                ].map((row, i) => (
+                                  <div key={i} className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0">
+                                    <span className="text-sm text-slate-500">{row.label}</span>
+                                    <span className={cn("text-sm font-bold text-slate-900", row.mono && "font-mono text-purple-700")}>{row.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 하단 */}
+                          <div className="p-4 border-t border-slate-200 flex justify-end">
+                            <button onClick={() => setDriverDetailModal(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all">닫기</button>
+                          </div>
+                        </motion.div>
+                      </div>
+                    );
+                  })()}
+                  </>
                 ) : (
                   /* ===== PROCESSOR / ADMIN / GOVERNMENT: Read-only table ===== */
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
