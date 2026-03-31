@@ -739,7 +739,7 @@ export default function App() {
   const selectedProcAssets = selectedProcEmission ? procIncomingAssets.filter(a => a.emissionId === selectedProcEmission) : [];
 
   // 분해 부품 데이터
-  const procParts = [
+  const [procParts, setProcParts] = useState([
     // PRC-001 (Dell PowerEdge R740) — 분해완료
     { id: 'P-001-1', parentId: 'PRC-001', parentAsset: 'AST-001', parentModel: 'Dell PowerEdge R740', name: 'CPU (Xeon Gold 6248)', category: 'CPU', condition: '양호', route: '재제조' as string, material: '', weight: '0.3kg', value: '₩85,000', dispositionStatus: '출하완료' as string },
     { id: 'P-001-2', parentId: 'PRC-001', parentAsset: 'AST-001', parentModel: 'Dell PowerEdge R740', name: 'RAM DDR4 32GB x4', category: 'RAM', condition: '양호', route: '재제조' as string, material: '', weight: '0.4kg', value: '₩120,000', dispositionStatus: '출하완료' as string },
@@ -755,7 +755,7 @@ export default function App() {
     { id: 'P-003-3', parentId: 'PRC-003', parentAsset: 'AST-013', parentModel: 'HP ProLiant DL380', name: '메인보드', category: 'PCB', condition: '수명초과', route: '재활용' as string, material: 'Au 0.5g, Cu 60g', weight: '1.8kg', value: '₩45,000', dispositionStatus: '납품완료' as string },
     { id: 'P-003-4', parentId: 'PRC-003', parentAsset: 'AST-013', parentModel: 'HP ProLiant DL380', name: '섀시 (알루미늄)', category: 'Chassis', condition: '양호', route: '재활용' as string, material: 'Al 6.8kg', weight: '7.2kg', value: '₩18,000', dispositionStatus: '납품완료' as string },
     { id: 'P-003-5', parentId: 'PRC-003', parentAsset: 'AST-013', parentModel: 'HP ProLiant DL380', name: '파워서플라이 1200W x2', category: 'PSU', condition: '양호', route: '재제조' as string, material: '', weight: '3.2kg', value: '₩90,000', dispositionStatus: '출하완료' as string },
-  ];
+  ]);
 
   const assetProcessingData = {
     summary: {
@@ -4474,7 +4474,24 @@ export default function App() {
                             </button>
                             <button onClick={() => {
                               if (!newPartForm.name) { alert('부품명을 입력해주세요.'); return; }
-                              alert(`부품 "${newPartForm.name}" (${newPartForm.category})이 등록되었습니다.`);
+                              const asset = procIncomingAssets.find(x => x.id === selectedDisassemblyAsset);
+                              if (!asset) return;
+                              const existingParts = procParts.filter(p => p.parentId === selectedDisassemblyAsset);
+                              const newPart = {
+                                id: `P-${selectedDisassemblyAsset?.replace('PRC-', '')}-${existingParts.length + 1}`,
+                                parentId: selectedDisassemblyAsset || '',
+                                parentAsset: asset.assetId,
+                                parentModel: asset.model,
+                                name: newPartForm.name,
+                                category: newPartForm.category,
+                                condition: newPartForm.condition,
+                                route: newPartForm.route,
+                                material: newPartForm.material,
+                                weight: newPartForm.weight || '—',
+                                value: newPartForm.value || '—',
+                                dispositionStatus: '미처분',
+                              };
+                              setProcParts(prev => [...prev, newPart]);
                               setAddPartModal(false);
                             }}
                               className="px-5 py-2.5 bg-orange-600 text-white rounded-xl text-sm font-bold hover:bg-orange-700 transition-all shadow-lg shadow-orange-600/20">
