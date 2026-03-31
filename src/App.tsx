@@ -273,6 +273,7 @@ export default function App() {
   const [emissionTab, setEmissionTab] = useState<'form' | 'list'>('list');
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedEmissionDetail, setSelectedEmissionDetail] = useState<string | null>(null);
+  const [codCertModal, setCodCertModal] = useState<string | null>(null);
   const [emissionSearchQuery, setEmissionSearchQuery] = useState('');
   const [emissionStatusFilter, setEmissionStatusFilter] = useState('전체');
 
@@ -988,6 +989,7 @@ export default function App() {
                         <th className="text-left px-4 py-3 font-bold text-slate-600">자산</th>
                         <th className="text-left px-4 py-3 font-bold text-slate-600">수거일</th>
                         <th className="text-left px-4 py-3 font-bold text-slate-600">상태</th>
+                        <th className="text-center px-4 py-3 font-bold text-slate-600">인증서</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1013,6 +1015,19 @@ export default function App() {
                               "bg-emerald-100 text-emerald-700"
                             )}>{e.status}</span>
                           </td>
+                          <td className="px-4 py-3 text-center">
+                            {e.status === '처리완료' ? (
+                              <button
+                                onClick={(ev) => { ev.stopPropagation(); setCodCertModal(e.id); }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[11px] font-bold hover:bg-emerald-100 transition-all"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                CoD
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-300">—</span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1026,6 +1041,131 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {/* ===== CoD 인증서 다운로드 모달 ===== */}
+            {codCertModal && (() => {
+              const emission = emissionRequests.find(e => e.id === codCertModal);
+              if (!emission) return null;
+              // Mock 자산별 CoD 데이터
+              const codAssets = Array.from({ length: emission.assetCount }, (_, i) => ({
+                id: `COD-${codCertModal?.replace('DSP-', '')}-${String(i + 1).padStart(3, '0')}`,
+                assetId: `AST-${String(i + 1).padStart(4, '0')}`,
+                type: ['서버', '노트북', '데스크탑', 'PC', '모니터', '네트워크장비'][i % 6],
+                model: ['Dell PowerEdge R740', 'Dell Latitude 5520', 'HP EliteDesk 800', 'Lenovo ThinkPad T14', 'Samsung S24', 'Cisco Catalyst 9200'][i % 6],
+                serial: `SN${String(Math.floor(Math.random() * 9000000 + 1000000))}`,
+                method: emission.deletionGrade,
+                result: i === 0 && emission.assetCount > 5 ? '물리파쇄' : '소프트웨어 삭제',
+                standard: emission.deletionGrade.includes('NIST') ? 'NIST 800-88 Rev.1' : 'DoD 5220.22-M',
+                operator: ['김보안', '이데이터', '박폐기'][i % 3],
+                date: '2026-03-' + String(20 + (i % 5)).padStart(2, '0'),
+                status: '검증완료',
+              }));
+              return (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setCodCertModal(null)}>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {/* 헤더 */}
+                    <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                          <FileBadge className="w-5 h-5 text-emerald-600" />
+                          데이터파기 인증서 (CoD)
+                        </h3>
+                        <p className="text-sm text-slate-500 mt-1">
+                          배출신청 <span className="font-bold text-emerald-600">{codCertModal}</span> · {emission.company} · 총 {emission.assetCount}건
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => alert('전체 인증서 ZIP 다운로드')}
+                          className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all flex items-center gap-1.5"
+                        >
+                          <Download className="w-3.5 h-3.5" /> 전체 다운로드 (ZIP)
+                        </button>
+                        <button onClick={() => setCodCertModal(null)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                          <X className="w-4 h-4 text-slate-500" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 요약 */}
+                    <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                      <div className="grid grid-cols-4 gap-4">
+                        <div className="text-center">
+                          <p className="text-xs text-slate-400 font-bold">총 자산</p>
+                          <p className="text-lg font-black text-slate-900">{emission.assetCount}건</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-slate-400 font-bold">폐기 완료</p>
+                          <p className="text-lg font-black text-emerald-600">{emission.assetCount}건</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-slate-400 font-bold">폐기 기준</p>
+                          <p className="text-sm font-bold text-slate-700">{emission.deletionGrade.split('(')[0]}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-slate-400 font-bold">인증 상태</p>
+                          <p className="text-sm font-bold text-emerald-600">✓ 전체 검증완료</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 자산별 인증서 목록 */}
+                    <div className="overflow-y-auto max-h-[calc(85vh-280px)]">
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                          <tr>
+                            <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">인증서 번호</th>
+                            <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">분류</th>
+                            <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">모델명</th>
+                            <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">시리얼</th>
+                            <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">폐기방식</th>
+                            <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">기준</th>
+                            <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">작업자</th>
+                            <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase">완료일</th>
+                            <th className="px-4 py-3 text-[11px] font-bold text-slate-500 uppercase text-center">다운로드</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {codAssets.map(asset => (
+                            <tr key={asset.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-3 text-xs font-bold text-emerald-700 font-mono">{asset.id}</td>
+                              <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[11px] font-bold">{asset.type}</span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-slate-700">{asset.model}</td>
+                              <td className="px-4 py-3 text-xs text-slate-500 font-mono">{asset.serial}</td>
+                              <td className="px-4 py-3 text-xs text-slate-600">{asset.result}</td>
+                              <td className="px-4 py-3 text-[11px] text-slate-500">{asset.standard}</td>
+                              <td className="px-4 py-3 text-xs text-slate-600">{asset.operator}</td>
+                              <td className="px-4 py-3 text-xs text-slate-600">{asset.date}</td>
+                              <td className="px-4 py-3 text-center">
+                                <button
+                                  onClick={() => alert(`${asset.id} 인증서 PDF 다운로드`)}
+                                  className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-all"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* 하단 */}
+                    <div className="p-4 border-t border-slate-200 flex items-center justify-between">
+                      <p className="text-[11px] text-slate-400">인증기관: K-ITAD 협회 · 처리사: ITAD 처리센터 (R2/e-Stewards 인증)</p>
+                      <button onClick={() => setCodCertModal(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all">닫기</button>
+                    </div>
+                  </motion.div>
+                </div>
+              );
+            })()}
 
             {/* ===== 배출신청 상세 보기 ===== */}
             {selectedEmissionDetail && selectedEmissionData && (
