@@ -783,7 +783,8 @@ export default function App() {
     processingFilter === '전체' || a.stage === processingFilter
   );
 
-  const disposalSteps = ['배정대기', '작업중', '폐기 수행', '검증대기', '검증', '완료'];
+  const disposalSteps = ['대기', '폐기중', '완료'];
+  const mapDisposalStep = (step: string) => step === '완료' ? '완료' : (step === '작업중' || step === '폐기 수행' || step === '검증대기' || step === '검증') ? '폐기중' : '대기';
 
   const disposalAssets = [
     // DSP-2026-00123: K-ITAD 전자 (8건)
@@ -866,12 +867,6 @@ export default function App() {
     { method: '디가우징', time: 30 },
     { method: '물리파괴', time: 20 },
     { method: '복합처리', time: 200 },
-  ];
-  const disposalSecurityData = [
-    { grade: '일반', total: 45, completed: 40 },
-    { grade: '중요', total: 32, completed: 28 },
-    { grade: '기밀', total: 25, completed: 18 },
-    { grade: '극비', total: 8, completed: 5 },
   ];
 
   const [currentAsset, setCurrentAsset] = useState({
@@ -3353,7 +3348,6 @@ export default function App() {
                               <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">신청번호</th>
                               <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출처</th>
                               <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부서</th>
-                              <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">보안등급</th>
                               <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산수</th>
                               <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">진행률</th>
                               <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
@@ -3372,14 +3366,6 @@ export default function App() {
                                   <td className="px-4 py-3 text-sm font-bold text-slate-900">{g.emissionId}</td>
                                   <td className="px-4 py-3 text-sm text-slate-700 font-medium">{g.company}</td>
                                   <td className="px-4 py-3 text-sm text-slate-600">{g.department}</td>
-                                  <td className="px-4 py-3">
-                                    <span className={cn("px-2 py-0.5 rounded-md text-[11px] font-bold",
-                                      g.securityGrade === '극비' ? "bg-rose-100 text-rose-700" :
-                                      g.securityGrade === '기밀' ? "bg-purple-100 text-purple-700" :
-                                      g.securityGrade === '중요' ? "bg-amber-100 text-amber-700" :
-                                      "bg-slate-100 text-slate-600"
-                                    )}>{g.securityGrade}</span>
-                                  </td>
                                   <td className="px-4 py-3 text-sm font-bold text-slate-900">{g.totalCount}건</td>
                                   <td className="px-4 py-3">
                                     <div className="flex items-center gap-2">
@@ -3424,12 +3410,11 @@ export default function App() {
                           </h4>
                           <div className="flex items-center gap-2">
                             {disposalSteps.map(step => {
-                              const count = selectedEmissionAssets.filter(a => a.step === step).length;
+                              const count = selectedEmissionAssets.filter(a => mapDisposalStep(a.step) === step).length;
                               return count > 0 ? (
                                 <span key={step} className={cn("px-2 py-1 rounded-md text-[10px] font-bold",
                                   step === '완료' ? "bg-emerald-100 text-emerald-700" :
-                                  step === '작업중' || step === '폐기 수행' ? "bg-blue-100 text-blue-700" :
-                                  step === '검증대기' || step === '검증' ? "bg-amber-100 text-amber-700" :
+                                  step === '폐기중' ? "bg-blue-100 text-blue-700" :
                                   "bg-slate-100 text-slate-600"
                                 )}>{step} {count}</span>
                               ) : null;
@@ -3466,12 +3451,13 @@ export default function App() {
                                   <td className="px-4 py-3 text-sm text-slate-600">{asset.capacity}</td>
                                   <td className="px-4 py-3 text-sm text-slate-600">{asset.method || '—'}</td>
                                   <td className="px-4 py-3">
+                                    {(() => { const s = mapDisposalStep(asset.step); return (
                                     <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                                      asset.step === '완료' ? "bg-emerald-100 text-emerald-700" :
-                                      asset.step === '작업중' || asset.step === '폐기 수행' ? "bg-blue-100 text-blue-700" :
-                                      asset.step === '검증대기' || asset.step === '검증' ? "bg-amber-100 text-amber-700" :
+                                      s === '완료' ? "bg-emerald-100 text-emerald-700" :
+                                      s === '폐기중' ? "bg-blue-100 text-blue-700" :
                                       "bg-slate-100 text-slate-600"
-                                    )}>{asset.step}</span>
+                                    )}>{s}</span>
+                                    ); })()}
                                   </td>
                                   <td className="px-4 py-3 text-sm text-slate-600">{asset.operator || '—'}</td>
                                 </tr>
@@ -3905,32 +3891,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* 보안등급별 처리 현황 */}
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-slate-700">보안등급별 처리 현황</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {disposalSecurityData.map((item, i) => (
-                          <div key={i} className="bg-slate-50 rounded-xl p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <span className={cn("px-2 py-0.5 rounded-md text-xs font-bold",
-                                item.grade === '극비' ? "bg-rose-100 text-rose-700" :
-                                item.grade === '기밀' ? "bg-purple-100 text-purple-700" :
-                                item.grade === '중요' ? "bg-amber-100 text-amber-700" :
-                                "bg-slate-200 text-slate-600"
-                              )}>{item.grade}</span>
-                              <span className="text-xs font-bold text-slate-400">{Math.round((item.completed / item.total) * 100)}%</span>
-                            </div>
-                            <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(item.completed / item.total) * 100}%` }} />
-                            </div>
-                            <div className="flex justify-between mt-2 text-xs text-slate-500">
-                              <span>완료 {item.completed}</span>
-                              <span>총 {item.total}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
