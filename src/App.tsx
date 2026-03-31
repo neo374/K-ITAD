@@ -697,6 +697,8 @@ export default function App() {
   const [processingFilter, setProcessingFilter] = useState('전체');
   const [processingStartDate, setProcessingStartDate] = useState('');
   const [processingEndDate, setProcessingEndDate] = useState('');
+  const [addPartModal, setAddPartModal] = useState(false);
+  const [newPartForm, setNewPartForm] = useState({ name: '', category: 'CPU', condition: '양호', route: '', material: '', weight: '', value: '' });
   const [selectedProcEmission, setSelectedProcEmission] = useState<string | null>(null);
   const [procCheckedAssets, setProcCheckedAssets] = useState<string[]>([]);
   const [procInspectionForm, setProcInspectionForm] = useState({
@@ -4319,7 +4321,7 @@ export default function App() {
                               <h4 className="text-sm font-bold text-slate-700">{asset?.assetId} — {asset?.model} 분해 부품</h4>
                               <span className="text-xs text-slate-400">{parts.length}개 부품</span>
                             </div>
-                            <button onClick={() => alert('새 부품이 추가되었습니다.')}
+                            <button onClick={() => { setNewPartForm({ name: '', category: 'CPU', condition: '양호', route: '', material: '', weight: '', value: '' }); setAddPartModal(true); }}
                               className="px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-700 transition-all flex items-center gap-1">
                               + 부품 추가
                             </button>
@@ -4381,6 +4383,107 @@ export default function App() {
                         </div>
                       );
                     })()}
+
+                    {/* 부품 추가 모달 */}
+                    {addPartModal && (
+                      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setAddPartModal(false)}>
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <div className="p-6 border-b border-slate-200">
+                            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                              <Layers className="w-5 h-5 text-orange-600" />
+                              부품 등록
+                            </h3>
+                            <p className="text-sm text-slate-500 mt-1">
+                              {(() => { const a = procIncomingAssets.find(x => x.id === selectedDisassemblyAsset); return a ? `${a.assetId} — ${a.model}` : ''; })()}
+                            </p>
+                          </div>
+
+                          <div className="p-6 space-y-4">
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700">부품명 <span className="text-rose-500">*</span></label>
+                              <input type="text" value={newPartForm.name} onChange={e => setNewPartForm({...newPartForm, name: e.target.value})}
+                                placeholder="예: CPU (Xeon Gold 6248)"
+                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">카테고리 <span className="text-rose-500">*</span></label>
+                                <select value={newPartForm.category} onChange={e => setNewPartForm({...newPartForm, category: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500">
+                                  {['CPU', 'RAM', 'Storage', 'PSU', 'PCB', 'Chassis', 'Cooling', 'Cable', 'Display', 'Battery', '기타'].map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">상태</label>
+                                <select value={newPartForm.condition} onChange={e => setNewPartForm({...newPartForm, condition: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500">
+                                  {['양호', '손상', '불량', '수명초과'].map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">처분 경로</label>
+                                <select value={newPartForm.route} onChange={e => setNewPartForm({...newPartForm, route: e.target.value})}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500">
+                                  <option value="">미배정</option>
+                                  <option value="재제조">재제조</option>
+                                  <option value="재활용">재활용</option>
+                                  <option value="폐기">폐기</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">중량</label>
+                                <input type="text" value={newPartForm.weight} onChange={e => setNewPartForm({...newPartForm, weight: e.target.value})}
+                                  placeholder="예: 1.5kg"
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500" />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">소재 정보</label>
+                                <input type="text" value={newPartForm.material} onChange={e => setNewPartForm({...newPartForm, material: e.target.value})}
+                                  placeholder="예: Au 0.3g, Cu 45g"
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700">예상 가치</label>
+                                <input type="text" value={newPartForm.value} onChange={e => setNewPartForm({...newPartForm, value: e.target.value})}
+                                  placeholder="예: ₩85,000"
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500" />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3">
+                            <button onClick={() => setAddPartModal(false)}
+                              className="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all">
+                              취소
+                            </button>
+                            <button onClick={() => {
+                              if (!newPartForm.name) { alert('부품명을 입력해주세요.'); return; }
+                              alert(`부품 "${newPartForm.name}" (${newPartForm.category})이 등록되었습니다.`);
+                              setAddPartModal(false);
+                            }}
+                              className="px-5 py-2.5 bg-orange-600 text-white rounded-xl text-sm font-bold hover:bg-orange-700 transition-all shadow-lg shadow-orange-600/20">
+                              등록
+                            </button>
+                          </div>
+                        </motion.div>
+                      </div>
+                    )}
                   </div>
                 )}
 
