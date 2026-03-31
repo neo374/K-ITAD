@@ -4580,11 +4580,6 @@ export default function App() {
           { id: 'STL-020', emissionId: 'DSP-2026-00118', company: '보안물류(주)', type: '매출', category: '보안운송비', amount: 520000, date: '2026-03-06', status: '정산완료', items: '보안운송 1건 (판교→용인)', taxInvoice: 'TX-20260306-001' },
           { id: 'STL-021', emissionId: 'DSP-2026-00125', company: '보안물류(주)', type: '매출', category: '보안운송비', amount: 890000, date: '2026-03-25', status: '미정산', items: '보안운송 1건 (마포→용인) 대형장비', taxInvoice: '' },
           { id: 'STL-022', emissionId: 'DSP-2026-00126', company: '보안물류(주)', type: '매출', category: '보안운송비', amount: 350000, date: '2026-03-27', status: '정산대기', items: '보안운송 1건 (성수→용인)', taxInvoice: '' },
-          // 운송회사(보안물류) 매입 - 유류비/톨비/인건비
-          { id: 'STL-023', emissionId: 'DSP-2026-00123', company: '보안물류(주)', type: '매입', category: '유류비', amount: -85000, date: '2026-03-11', status: '정산완료', items: '경유 65L', taxInvoice: 'TX-20260311-003' },
-          { id: 'STL-024', emissionId: 'DSP-2026-00120', company: '보안물류(주)', type: '매입', category: '유류비', amount: -92000, date: '2026-03-09', status: '정산완료', items: '경유 70L', taxInvoice: 'TX-20260309-002' },
-          { id: 'STL-025', emissionId: 'DSP-2026-00124', company: '보안물류(주)', type: '매입', category: '톨비/통행료', amount: -15600, date: '2026-03-22', status: '정산대기', items: '고속도로 톨비 (여의도→용인)', taxInvoice: '' },
-          { id: 'STL-026', emissionId: 'DSP-2026-00125', company: '보안물류(주)', type: '매입', category: '장비임차료', amount: -180000, date: '2026-03-25', status: '미정산', items: '지게차 임차 1일', taxInvoice: '' },
         ];
         const settlementByRole = (userRole === 'admin' || userRole === 'processor') ? settlementData : settlementData.filter(s => s.company === userCompany);
         const settlementFiltered = settlementByRole.filter(s => {
