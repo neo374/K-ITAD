@@ -611,7 +611,8 @@ export default function App() {
   };
 
   // ===== Disposal (데이터 폐기) State =====
-  const [disposalTab, setDisposalTab] = useState<'status' | 'work' | 'verify' | 'stats'>('status');
+  const [disposalTab, setDisposalTab] = useState<'receiving' | 'status' | 'work' | 'verify' | 'stats'>('receiving');
+  const [receivingMonth, setReceivingMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [disposalStepFilter, setDisposalStepFilter] = useState('전체');
   const [disposalSearch, setDisposalSearch] = useState('');
   const [disposalMethodFilter, setDisposalMethodFilter] = useState('전체');
@@ -2108,7 +2109,6 @@ export default function App() {
               ];
             case 'processor':
               return [
-                { id: 'dispatch' as const, label: '배차 관리', icon: ClipboardList },
                 { id: 'monitoring' as const, label: '운송 모니터링', icon: Monitor },
               ];
             case 'government':
@@ -3279,42 +3279,11 @@ export default function App() {
               </p>
             </div>
 
-            {/* ===== 상단 요약 카드 4개 ===== */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: '총 폐기 대상', value: `${disposalTotalCount}`, sub: `${disposalEmissionGroups.length}건의 배출요청`, icon: Database, color: 'indigo' },
-                { label: '폐기 완료율', value: `${disposalCompletionRate}%`, sub: `${disposalCompletedCount}/${disposalTotalCount}건 완료`, icon: CheckCircle2, color: 'emerald', gauge: disposalCompletionRate },
-                { label: '작업중', value: `${disposalAssets.filter(a => a.step === '작업중' || a.step === '폐기 수행').length}`, sub: '현재 진행중인 작업', icon: Clock, color: 'amber' },
-                { label: '인증서 발급', value: `${disposalCerts.length}`, sub: '누적 CoD 발급', icon: FileBadge, color: 'blue' },
-              ].map((card, i) => (
-                <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center",
-                      card.color === 'indigo' ? "bg-indigo-50 text-indigo-600" :
-                      card.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
-                      card.color === 'blue' ? "bg-blue-50 text-blue-600" :
-                      "bg-amber-50 text-amber-600"
-                    )}>
-                      <card.icon className="w-5 h-5" />
-                    </div>
-                    <span className="text-sm font-bold text-slate-500">{card.label}</span>
-                  </div>
-                  <p className="text-2xl font-black text-slate-900">{card.value}</p>
-                  {card.gauge !== undefined && (
-                    <div className="w-full h-2 bg-slate-100 rounded-full mt-2 overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${card.gauge}%` }} />
-                    </div>
-                  )}
-                  <p className="text-xs font-bold mt-1 text-slate-400">{card.sub}</p>
-                </div>
-              ))}
-            </div>
-
             {/* ===== 탭 메뉴 ===== */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="flex border-b border-slate-200">
                 {[
+                  { key: 'receiving' as const, label: '입고 현황', icon: CalendarDays },
                   { key: 'status' as const, label: '작업 현황', icon: ClipboardList },
                   ...(!isDisposalReadOnly ? [{ key: 'work' as const, label: '작업 수행 / 결과 등록', icon: PenTool }] : []),
                   ...(!isDisposalReadOnly ? [{ key: 'verify' as const, label: '검증 / 인증서', icon: ShieldCheck }] : []),
@@ -3335,6 +3304,181 @@ export default function App() {
               </div>
 
               <div className="p-6">
+                {/* ===== 입고 현황 캘린더 ===== */}
+                {disposalTab === 'receiving' && (() => {
+                  // 입고 샘플 데이터
+                  const receivingData = [
+                    { id: 'RCV-001', emissionId: 'DSP-2026-00123', company: 'K-ITAD 전자', department: 'IT인프라팀', assetCount: 8, assetTypes: '서버 3, PC 2, 노트북 3', date: '2026-03-10', status: '입고완료' as const },
+                    { id: 'RCV-002', emissionId: 'DSP-2026-00120', company: '현대모비스', department: 'DX실', assetCount: 3, assetTypes: '서버 2, PC 1', date: '2026-03-11', status: '입고완료' as const },
+                    { id: 'RCV-003', emissionId: 'DSP-2026-00124', company: 'SKT', department: 'IT인프라팀', assetCount: 4, assetTypes: 'PC 2, 노트북 2', date: '2026-03-14', status: '입고완료' as const },
+                    { id: 'RCV-004', emissionId: 'DSP-2026-00118', company: '삼성전자', department: '정보보안팀', assetCount: 12, assetTypes: '서버 4, PC 5, 노트북 3', date: '2026-03-17', status: '입고완료' as const },
+                    { id: 'RCV-005', emissionId: 'DSP-2026-00125', company: 'LG전자', department: 'IT운영팀', assetCount: 6, assetTypes: '서버 2, 노트북 4', date: '2026-03-20', status: '입고완료' as const },
+                    { id: 'RCV-006', emissionId: 'DSP-2026-00126', company: '카카오', department: '인프라팀', assetCount: 15, assetTypes: '서버 8, PC 4, 네트워크 3', date: '2026-03-24', status: '입고완료' as const },
+                    { id: 'RCV-007', emissionId: 'DSP-2026-00127', company: '네이버', department: 'IT보안팀', assetCount: 10, assetTypes: '서버 5, PC 3, 노트북 2', date: '2026-03-27', status: '입고완료' as const },
+                    { id: 'RCV-008', emissionId: 'DSP-2026-00128', company: '우리은행', department: 'IT센터', assetCount: 20, assetTypes: '서버 10, PC 6, 노트북 4', date: '2026-03-31', status: '입고예정' as const },
+                    { id: 'RCV-009', emissionId: 'DSP-2026-00129', company: 'KB국민은행', department: '전산팀', assetCount: 8, assetTypes: '서버 3, PC 3, 노트북 2', date: '2026-04-02', status: '입고예정' as const },
+                    { id: 'RCV-010', emissionId: 'DSP-2026-00130', company: '포스코', department: 'DX센터', assetCount: 14, assetTypes: '서버 6, PC 5, 네트워크 3', date: '2026-04-04', status: '입고예정' as const },
+                    { id: 'RCV-011', emissionId: 'DSP-2026-00131', company: '현대자동차', department: 'IT인프라팀', assetCount: 25, assetTypes: '서버 12, PC 8, 노트북 5', date: '2026-04-07', status: '입고예정' as const },
+                    { id: 'RCV-012', emissionId: 'DSP-2026-00132', company: 'SK하이닉스', department: '정보보호팀', assetCount: 18, assetTypes: '서버 9, PC 5, 노트북 4', date: '2026-04-10', status: '입고예정' as const },
+                    { id: 'RCV-013', emissionId: 'DSP-2026-00133', company: '삼성SDI', department: 'IT팀', assetCount: 7, assetTypes: '서버 2, PC 3, 노트북 2', date: '2026-04-14', status: '입고예정' as const },
+                  ];
+
+                  const year = receivingMonth.getFullYear();
+                  const month = receivingMonth.getMonth();
+                  const firstDay = new Date(year, month, 1).getDay();
+                  const daysInMonth = new Date(year, month + 1, 0).getDate();
+                  const calendarDays: (number | null)[] = [];
+                  for (let i = 0; i < firstDay; i++) calendarDays.push(null);
+                  for (let d = 1; d <= daysInMonth; d++) calendarDays.push(d);
+                  while (calendarDays.length % 7 !== 0) calendarDays.push(null);
+
+                  const getEventsForDay = (day: number) => {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    return receivingData.filter(r => r.date === dateStr);
+                  };
+
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  const totalReceived = receivingData.filter(r => r.status === '입고완료').length;
+                  const totalExpected = receivingData.filter(r => r.status === '입고예정').length;
+                  const totalAssets = receivingData.reduce((a, r) => a + r.assetCount, 0);
+
+                  return (
+                    <div className="space-y-6">
+                      {/* 요약 */}
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="bg-emerald-50 rounded-xl p-4 text-center">
+                          <p className="text-xs font-bold text-emerald-600">입고완료</p>
+                          <p className="text-2xl font-black text-emerald-700">{totalReceived}건</p>
+                        </div>
+                        <div className="bg-amber-50 rounded-xl p-4 text-center">
+                          <p className="text-xs font-bold text-amber-600">입고예정</p>
+                          <p className="text-2xl font-black text-amber-700">{totalExpected}건</p>
+                        </div>
+                        <div className="bg-indigo-50 rounded-xl p-4 text-center">
+                          <p className="text-xs font-bold text-indigo-600">총 자산수</p>
+                          <p className="text-2xl font-black text-indigo-700">{totalAssets}건</p>
+                        </div>
+                      </div>
+
+                      {/* 캘린더 네비게이션 */}
+                      <div className="flex items-center justify-between">
+                        <button onClick={() => setReceivingMonth(new Date(year, month - 1, 1))} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                          <ChevronLeft className="w-5 h-5 text-slate-600" />
+                        </button>
+                        <h3 className="text-lg font-bold text-slate-900">{year}년 {month + 1}월</h3>
+                        <button onClick={() => setReceivingMonth(new Date(year, month + 1, 1))} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                          <ChevronRight className="w-5 h-5 text-slate-600" />
+                        </button>
+                      </div>
+
+                      {/* 캘린더 그리드 */}
+                      <div className="border border-slate-200 rounded-xl overflow-hidden">
+                        {/* 요일 헤더 */}
+                        <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-200">
+                          {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+                            <div key={d} className={cn("py-3 text-center text-xs font-bold", i === 0 ? "text-rose-500" : i === 6 ? "text-blue-500" : "text-slate-500")}>{d}</div>
+                          ))}
+                        </div>
+                        {/* 날짜 셀 */}
+                        <div className="grid grid-cols-7">
+                          {calendarDays.map((day, idx) => {
+                            const events = day ? getEventsForDay(day) : [];
+                            const dateStr = day ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '';
+                            const isToday = dateStr === todayStr;
+                            const dayOfWeek = idx % 7;
+                            return (
+                              <div key={idx} className={cn(
+                                "min-h-[110px] border-b border-r border-slate-100 p-1.5",
+                                !day && "bg-slate-50/50",
+                                isToday && "bg-rose-50/40"
+                              )}>
+                                {day && (
+                                  <>
+                                    <div className={cn(
+                                      "text-xs font-bold mb-1 w-6 h-6 flex items-center justify-center rounded-full",
+                                      isToday ? "bg-rose-600 text-white" : dayOfWeek === 0 ? "text-rose-500" : dayOfWeek === 6 ? "text-blue-500" : "text-slate-700"
+                                    )}>
+                                      {day}
+                                    </div>
+                                    <div className="space-y-1">
+                                      {events.map(ev => (
+                                        <div key={ev.id} className={cn(
+                                          "px-1.5 py-1 rounded-md text-[10px] font-bold truncate cursor-default",
+                                          ev.status === '입고완료' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                                        )} title={`${ev.company} · ${ev.assetTypes} (${ev.assetCount}건)`}>
+                                          <span className={cn(
+                                            "inline-block w-1.5 h-1.5 rounded-full mr-1",
+                                            ev.status === '입고완료' ? "bg-emerald-500" : "bg-amber-500"
+                                          )} />
+                                          {ev.company} ({ev.assetCount})
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* 범례 */}
+                      <div className="flex items-center gap-6 justify-end">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-emerald-500" />
+                          <span className="text-xs font-bold text-slate-600">입고완료</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-amber-500" />
+                          <span className="text-xs font-bold text-slate-600">입고예정</span>
+                        </div>
+                      </div>
+
+                      {/* 입고 목록 테이블 */}
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-700 mb-3">입고 목록</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">입고번호</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출신청번호</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">배출처</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">부서</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산수</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">자산구성</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">입고일</th>
+                                <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase">상태</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {receivingData.filter(r => {
+                                const rDate = new Date(r.date);
+                                return rDate.getFullYear() === year && rDate.getMonth() === month;
+                              }).map(r => (
+                                <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{r.id}</td>
+                                  <td className="px-4 py-3 text-sm text-rose-600 font-bold">{r.emissionId}</td>
+                                  <td className="px-4 py-3 text-sm font-medium text-slate-700">{r.company}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{r.department}</td>
+                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{r.assetCount}건</td>
+                                  <td className="px-4 py-3 text-xs text-slate-500">{r.assetTypes}</td>
+                                  <td className="px-4 py-3 text-sm text-slate-600">{r.date}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                      r.status === '입고완료' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                                    )}>{r.status}</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* ===== 탭A: 작업 현황 ===== */}
                 {disposalTab === 'status' && (
                   <div className="space-y-6">
