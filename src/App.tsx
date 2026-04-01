@@ -919,7 +919,7 @@ export default function App() {
     { id: 'disposal', label: '데이터폐기', icon: ShieldCheck },
     { id: 'processing', label: '자산처리', icon: Cog },
     { id: 'settlement', label: '정산관리', icon: CircleDollarSign },
-    { id: 'circulation', label: userRole === 'emitter' ? '통계/리포트' : '자원순환', icon: userRole === 'emitter' ? BarChart3 : Recycle },
+    { id: 'circulation', label: '통계/리포트', icon: BarChart3 },
     { id: 'allbaro', label: '올바로연동', icon: Link2 },
     { id: 'info', label: '정보관리', icon: Building2 },
     { id: 'settings', label: '설정', icon: Settings },
