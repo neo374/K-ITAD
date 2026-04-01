@@ -906,7 +906,7 @@ export default function App() {
   };
 
   const roleConfig: Record<string, { label: string; company: string; menus: string[]; defaultTab: string }> = {
-    emitter:     { label: '배출자', company: 'K-ITAD 전자', menus: ['emission', 'transport', 'settlement', 'circulation', 'allbaro', 'info', 'settings'], defaultTab: 'emission' },
+    emitter:     { label: '배출자', company: 'K-ITAD 전자', menus: ['emission', 'settlement', 'circulation', 'allbaro', 'info', 'settings'], defaultTab: 'emission' },
     transporter: { label: '운송회사', company: '보안물류(주)', menus: ['transport', 'settlement', 'allbaro', 'info', 'settings'], defaultTab: 'transport' },
     processor:   { label: '처리사', company: 'ITAD 처리센터', menus: ['emission', 'transport', 'disposal', 'processing', 'settlement', 'circulation', 'allbaro', 'info', 'settings'], defaultTab: 'emission' },
     government:  { label: '정부기관', company: '환경부', menus: ['circulation', 'settings'], defaultTab: 'circulation' },
@@ -919,7 +919,7 @@ export default function App() {
     { id: 'disposal', label: '데이터폐기', icon: ShieldCheck },
     { id: 'processing', label: '자산처리', icon: Cog },
     { id: 'settlement', label: '정산관리', icon: CircleDollarSign },
-    { id: 'circulation', label: '자원순환', icon: Recycle },
+    { id: 'circulation', label: userRole === 'emitter' ? '통계/리포트' : '자원순환', icon: userRole === 'emitter' ? BarChart3 : Recycle },
     { id: 'allbaro', label: '올바로연동', icon: Link2 },
     { id: 'info', label: '정보관리', icon: Building2 },
     { id: 'settings', label: '설정', icon: Settings },
