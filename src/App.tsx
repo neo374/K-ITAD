@@ -1337,9 +1337,9 @@ export default function App() {
                 <div className="absolute top-5 left-0 w-full h-0.5 bg-slate-100 -z-0"></div>
                 <div 
                   className="absolute top-5 left-0 h-0.5 bg-emerald-500 transition-all duration-500 -z-0" 
-                  style={{ width: `${((currentStep - 1) / 5) * 100}%` }}
+                  style={{ width: `${((currentStep - 1) / 4) * 100}%` }}
                 ></div>
-                {[1, 2, 3, 4, 5, 6].map((step) => (
+                {[1, 2, 3, 4, 5].map((step) => (
                   <div key={step} className="relative z-10 flex flex-col items-center gap-2">
                     <div className={cn(
                       "w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300",
@@ -1355,8 +1355,7 @@ export default function App() {
                       {step === 2 && "배출 자산"}
                       {step === 3 && "데이터 삭제"}
                       {step === 4 && "수거 정보"}
-                      {step === 5 && "예상금액"}
-                      {step === 6 && "확인 및 제출"}
+                      {step === 5 && "확인 및 제출"}
                     </span>
                   </div>
                 ))}
@@ -1793,77 +1792,7 @@ export default function App() {
                 {currentStep === 5 && (
                   <div className="space-y-8">
                     <div className="border-b border-slate-100 pb-4">
-                      <h3 className="text-xl font-bold text-slate-900">STEP 5. 예상금액</h3>
-                      <p className="text-slate-500 text-sm mt-1">배출 자산의 예상 정산 금액을 확인하세요.</p>
-                    </div>
-                    <div className="max-w-3xl space-y-6">
-                      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                        <div className="divide-y divide-slate-100">
-                          <div className="flex items-center justify-between p-5">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center"><span className="text-emerald-600 font-black text-xs">+</span></div>
-                              <div><p className="font-bold text-slate-900">배출자산가치</p><p className="text-xs text-slate-400">자산 {formData.assets.length}건 기준</p></div>
-                            </div>
-                            <p className="text-lg font-black text-emerald-600">+{(formData.assets.length * 125000).toLocaleString()}원</p>
-                          </div>
-                          <div className="flex items-center justify-between p-5">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center"><span className="text-rose-600 font-black text-xs">-</span></div>
-                              <div><p className="font-bold text-slate-900">보안운송비</p><p className="text-xs text-slate-400">거리/수량 기반 산정</p></div>
-                            </div>
-                            <p className="text-lg font-black text-rose-600">-{(formData.assets.length * 15000).toLocaleString()}원</p>
-                          </div>
-                          <div className="flex items-center justify-between p-5">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center"><span className="text-rose-600 font-black text-xs">-</span></div>
-                              <div><p className="font-bold text-slate-900">데이터삭제</p><p className="text-xs text-slate-400">{formData.dataDeletion ? formData.deletionGrade : '미요청'}</p></div>
-                            </div>
-                            <p className="text-lg font-black text-rose-600">-{formData.dataDeletion ? (formData.assets.length * 30000).toLocaleString() : '0'}원</p>
-                          </div>
-                          <div className="flex items-center justify-between p-5">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center"><span className="text-rose-600 font-black text-xs">-</span></div>
-                              <div><p className="font-bold text-slate-900">최종처리비</p><p className="text-xs text-slate-400">분해/분류/폐기 비용</p></div>
-                            </div>
-                            <p className="text-lg font-black text-rose-600">-{(formData.assets.length * 20000).toLocaleString()}원</p>
-                          </div>
-                        </div>
-                        <div className="bg-indigo-50 border-t-2 border-indigo-200 p-6 flex items-center justify-between">
-                          <div>
-                            <p className="font-bold text-indigo-900 text-lg">정산금액 예상</p>
-                            <p className="text-xs text-indigo-500 mt-1">실제 금액은 검수 후 확정됩니다</p>
-                          </div>
-                          <p className="text-2xl font-black text-indigo-600">
-                            {((formData.assets.length * 125000) - (formData.assets.length * 15000) - (formData.dataDeletion ? formData.assets.length * 30000 : 0) - (formData.assets.length * 20000)).toLocaleString()}원
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-                            <Leaf className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-emerald-900">ESG 리포트 발급</p>
-                            <p className="text-xs text-emerald-700 mt-1">탄소절감 및 자원순환 실적 리포트를 제공합니다.</p>
-                          </div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={formData.esgReport}
-                          onChange={(e) => setFormData({...formData, esgReport: e.target.checked})}
-                          className="w-6 h-6 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {currentStep === 6 && (
-                  <div className="space-y-8">
-                    <div className="border-b border-slate-100 pb-4">
-                      <h3 className="text-xl font-bold text-slate-900">STEP 6. 확인 및 제출</h3>
+                      <h3 className="text-xl font-bold text-slate-900">STEP 5. 확인 및 제출</h3>
                       <p className="text-slate-500 text-sm mt-1">입력하신 내용을 최종 확인하고 신청서를 제출해 주세요.</p>
                     </div>
                     
@@ -1894,12 +1823,6 @@ export default function App() {
                             <div className="flex justify-between">
                               <span className="text-slate-500">수거지</span>
                               <span className="font-bold text-slate-900 text-right">{formData.address} {formData.addressDetail}</span>
-                            </div>
-                            <div className="flex justify-between pt-3 mt-3 border-t border-slate-200">
-                              <span className="text-indigo-600 font-bold">예상 정산금액</span>
-                              <span className="font-black text-indigo-600 text-lg">
-                                {((formData.assets.length * 125000) - (formData.assets.length * 15000) - (formData.dataDeletion ? formData.assets.length * 30000 : 0) - (formData.assets.length * 20000)).toLocaleString()}원
-                              </span>
                             </div>
                           </div>
                         </div>
@@ -2016,7 +1939,7 @@ export default function App() {
                 </button>
                 <div className="flex gap-4">
                   <button className="px-8 py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors">임시 저장</button>
-                  {currentStep < 6 && (
+                  {currentStep < 5 && (
                     <button 
                       onClick={() => setCurrentStep(currentStep + 1)}
                       className="px-10 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2"
