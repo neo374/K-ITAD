@@ -994,6 +994,64 @@ export default function App() {
             {/* ===== 배출신청 확인 탭 ===== */}
             {!selectedEmissionDetail && (
               <div className="space-y-4">
+                {/* ===== 진행상태별 요약 카드 ===== */}
+                {(userRole === 'emitter' || userRole === 'processor') && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {[
+                      { status: '신청완료', icon: FileText, color: 'blue', desc: '수거 전' },
+                      { status: '접수확인', icon: CheckCircle2, color: 'amber', desc: '처리사 접수' },
+                      { status: '운송중', icon: Truck, color: 'indigo', desc: '수거·이동 중' },
+                      { status: '데이터폐기중', icon: ShieldCheck, color: 'violet', desc: '데이터 삭제 중' },
+                      { status: '처리완료', icon: CheckCircle2, color: 'emerald', desc: 'CoD 발급 완료' },
+                    ].map(s => {
+                      const count = emissionRequests.filter(e => e.status === s.status).length;
+                      const isActive = emissionStatusFilter === s.status;
+                      return (
+                        <button
+                          key={s.status}
+                          onClick={() => setEmissionStatusFilter(isActive ? '전체' : s.status)}
+                          className={cn(
+                            "bg-white p-4 rounded-2xl border shadow-sm text-left transition-all",
+                            isActive
+                              ? s.color === 'blue' ? "border-blue-500 ring-2 ring-blue-200" :
+                                s.color === 'amber' ? "border-amber-500 ring-2 ring-amber-200" :
+                                s.color === 'indigo' ? "border-indigo-500 ring-2 ring-indigo-200" :
+                                s.color === 'violet' ? "border-violet-500 ring-2 ring-violet-200" :
+                                "border-emerald-500 ring-2 ring-emerald-200"
+                              : "border-slate-200 hover:border-slate-300 hover:shadow-md"
+                          )}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className={cn(
+                              "w-9 h-9 rounded-xl flex items-center justify-center",
+                              s.color === 'blue' ? "bg-blue-50 text-blue-600" :
+                              s.color === 'amber' ? "bg-amber-50 text-amber-600" :
+                              s.color === 'indigo' ? "bg-indigo-50 text-indigo-600" :
+                              s.color === 'violet' ? "bg-violet-50 text-violet-600" :
+                              "bg-emerald-50 text-emerald-600"
+                            )}>
+                              <s.icon className="w-4 h-4" />
+                            </div>
+                            <span className="text-xs font-bold text-slate-500">{s.status}</span>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className={cn(
+                              "text-2xl font-black",
+                              s.color === 'blue' ? "text-blue-700" :
+                              s.color === 'amber' ? "text-amber-700" :
+                              s.color === 'indigo' ? "text-indigo-700" :
+                              s.color === 'violet' ? "text-violet-700" :
+                              "text-emerald-700"
+                            )}>{count}</span>
+                            <span className="text-xs text-slate-400 font-bold">건</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{s.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* 필터/검색/기간 */}
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex gap-1 bg-white border border-slate-200 p-1 rounded-xl">
