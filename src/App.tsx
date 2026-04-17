@@ -304,15 +304,12 @@ export default function App() {
     { id: 'DSP-2026-00128', company: '삼성전자 DS부문', applicant: '김삼성', department: '반도체사업부', contact: '010-6161-7171', email: 'kim@samsung.com', status: '운송중' as string, createdAt: '2026-03-22 09:00', assetCount: 20, assetSummary: 'Dell R740 서버 외 19대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 3), address: '경기 화성시 동탄순환대로 200', processing: '재활용 우선', securityGrade: '극비', transportId: 'TRN-2026-00054', totalWeight: '580kg', assignedDriver: '박운송' },
 
     // ===== 이번 주 배차대기 (신청완료/접수확인) =====
-    { id: 'DSP-2026-00130', company: '우아한형제들', applicant: '이배민', department: '플랫폼운영팀', contact: '010-8282-9191', email: 'lee@woowahan.com', status: '신청완료' as string, createdAt: '2026-03-23 10:00', assetCount: 11, assetSummary: 'MacBook Pro 16 외 10대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 3), address: '서울 송파구 올림픽로 300', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '33kg' },
-    { id: 'DSP-2026-00131', company: '카카오엔터프라이즈', applicant: '박카카오', department: 'IT운영팀', contact: '010-9393-1010', email: 'park@kakaoent.com', status: '신청완료' as string, createdAt: '2026-03-23 11:30', assetCount: 17, assetSummary: 'HP ProBook 외 16대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 4), address: '경기 성남시 분당구 판교역로 235', processing: '재활용 우선', securityGrade: '중요', transportId: '', totalWeight: '55kg' },
-    { id: 'DSP-2026-00126', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '신청완료' as string, createdAt: '2026-03-24 11:00', assetCount: 5, assetSummary: 'MacBook Pro 16 외 4대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 4), address: '서울 강남구 테헤란로 521', processing: '재활용 우선', securityGrade: '일반', transportId: '', totalWeight: '15kg' },
-    { id: 'DSP-2026-00127', company: 'LG CNS', applicant: '박엘지', department: 'IT운영팀', contact: '010-9999-0000', email: 'park@lgcns.com', status: '접수확인' as string, createdAt: '2026-03-24 13:45', assetCount: 40, assetSummary: 'HP ProLiant DL380 외 39대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(1, 1), address: '서울 마포구 월드컵북로 56길 19', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '1,200kg' },
+    { id: 'DSP-2026-00130', company: '우아한형제들', applicant: '이배민', department: '플랫폼운영팀', contact: '010-8282-9191', email: 'lee@woowahan.com', status: '신청완료' as string, createdAt: '2026-03-23 10:00', assetCount: 11, assetSummary: 'MacBook Pro 16 외 10대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 3), address: '서울 송파구 올림픽로 300', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '330kg' },
+    { id: 'DSP-2026-00127', company: 'LG CNS', applicant: '박엘지', department: 'IT운영팀', contact: '010-9999-0000', email: 'park@lgcns.com', status: '접수확인' as string, createdAt: '2026-03-24 13:45', assetCount: 40, assetSummary: 'HP ProLiant DL380 외 39대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 4), address: '서울 마포구 월드컵북로 56길 19', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '1,200kg' },
 
     // ===== 다음 주 배차대기 =====
     { id: 'DSP-2026-00132', company: '현대자동차 R&D센터', applicant: '김현대', department: '자율주행사업부', contact: '010-5151-6262', email: 'kim@hyundai.com', status: '신청완료' as string, createdAt: '2026-03-25 09:00', assetCount: 28, assetSummary: 'NVIDIA DGX A100 외 27대', deletionGrade: '완전파괴(DoD 5220.22-M)', collectionDate: demoDate(1, 0), address: '경기 화성시 현대연구단지 150', processing: '물리파쇄 + 재활용', securityGrade: '극비', transportId: '', totalWeight: '1,450kg' },
     { id: 'DSP-2026-00133', company: '쿠팡', applicant: '이쿠팡', department: '인프라팀', contact: '010-7272-8383', email: 'lee@coupang.com', status: '신청완료' as string, createdAt: '2026-03-25 14:00', assetCount: 22, assetSummary: 'Dell PowerEdge R640 외 21대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(1, 2), address: '서울 송파구 송파대로 570', processing: '재활용 우선', securityGrade: '중요', transportId: '', totalWeight: '610kg' },
-    { id: 'DSP-2026-00134', company: '토스 (비바리퍼블리카)', applicant: '조토스', department: 'SRE팀', contact: '010-4848-5959', email: 'cho@toss.im', status: '신청완료' as string, createdAt: '2026-03-26 10:15', assetCount: 14, assetSummary: 'Mac Mini M2 외 13대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(1, 3), address: '서울 강남구 테헤란로 142', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '38kg' },
     { id: 'DSP-2026-00135', company: '한국전력공사', applicant: '박한전', department: '정보보안팀', contact: '010-1717-2828', email: 'park@kepco.co.kr', status: '신청완료' as string, createdAt: '2026-03-26 15:30', assetCount: 35, assetSummary: 'HP ProLiant DL380 외 34대', deletionGrade: '완전파괴(DoD 5220.22-M)', collectionDate: demoDate(1, 4), address: '전남 나주시 전력로 55', processing: '물리파쇄', securityGrade: '극비', transportId: '', totalWeight: '1,080kg' },
   ]);
 
@@ -362,7 +359,7 @@ export default function App() {
   const [transportFilter, setTransportFilter] = useState('전체');
   const [integrityFilter, setIntegrityFilter] = useState('전체');
   const [integritySearch, setIntegritySearch] = useState('');
-  const [dispatchFilter, setDispatchFilter] = useState('전체');
+  const [dispatchFilter, setDispatchFilter] = useState('배차대기');
   const [selectedDispatch, setSelectedDispatch] = useState<string | null>(null);
   const [dispatchForm, setDispatchForm] = useState({
     vehicleType: '1톤 보안차량',
@@ -2036,7 +2033,36 @@ export default function App() {
           { name: '박운송', vehicle: '서울12가3456', phone: '010-1111-2222', license: '1종 대형', licenseNo: '11-23-456789-01', vehicleType: '5톤 윙바디', vehicleYear: '2023', insurance: '삼성화재 (영업배상 5억)', photo: '' },
           { name: '김기사', vehicle: '경기34나7890', phone: '010-3333-4444', license: '1종 대형', licenseNo: '22-34-567890-02', vehicleType: '3.5톤 탑차', vehicleYear: '2024', insurance: '현대해상 (영업배상 5억)', photo: '' },
           { name: '이운전', vehicle: '서울56다1234', phone: '010-5555-6666', license: '1종 보통', licenseNo: '33-45-678901-03', vehicleType: '1톤 탑차', vehicleYear: '2022', insurance: 'DB손해보험 (영업배상 3억)', photo: '' },
+          { name: '최수거', vehicle: '인천78라5678', phone: '010-7777-8888', license: '1종 대형', licenseNo: '44-56-789012-04', vehicleType: '5톤 윙바디', vehicleYear: '2023', insurance: '삼성화재 (영업배상 5억)', photo: '' },
+          { name: '정배송', vehicle: '경기90마2468', phone: '010-9999-0000', license: '1종 대형', licenseNo: '55-67-890123-05', vehicleType: '3.5톤 탑차', vehicleYear: '2024', insurance: '현대해상 (영업배상 5억)', photo: '' },
+          { name: '한기사', vehicle: '서울13바1357', phone: '010-2222-3333', license: '1종 보통', licenseNo: '66-78-901234-06', vehicleType: '1톤 탑차', vehicleYear: '2023', insurance: 'DB손해보험 (영업배상 3억)', photo: '' },
+          { name: '오수송', vehicle: '경기57사9753', phone: '010-4444-5555', license: '1종 대형', licenseNo: '77-89-012345-07', vehicleType: '3.5톤 탑차', vehicleYear: '2022', insurance: 'KB손해보험 (영업배상 5억)', photo: '' },
         ];
+
+        // Vehicle capacity map (for load rate / recommendation calc)
+        const vehicleCapacity: Record<string, number> = {
+          '1톤 탑차': 1000,
+          '3.5톤 탑차': 3500,
+          '5톤 윙바디': 5000,
+        };
+
+        // 요청건 중량 추출 헬퍼 (e.g. "420kg" or "1,200kg" -> 420 / 1200)
+        const parseWeight = (w: string | undefined) => {
+          if (!w) return 0;
+          const n = parseInt(w.replace(/[^0-9]/g, ''), 10);
+          return isNaN(n) ? 0 : n;
+        };
+
+        // 차량 추천 로직
+        const recommendVehicles = (totalWeightKg: number, hasCriticalSecurity: boolean) => {
+          if (totalWeightKg === 0) return { text: '-', size: 'none' };
+          if (hasCriticalSecurity && totalWeightKg <= 1000) return { text: '1톤 단독 (극비)', size: '1ton' };
+          if (totalWeightKg <= 800) return { text: '1톤 1대', size: '1ton' };
+          if (totalWeightKg <= 2000) return { text: '3.5톤 1대', size: '3.5ton' };
+          if (totalWeightKg <= 5000) return { text: '5톤 1대', size: '5ton' };
+          if (totalWeightKg <= 8000) return { text: '5톤 + 3.5톤', size: 'multi' };
+          return { text: '5톤 2대+', size: 'multi' };
+        };
 
         // Generate Mon-Fri of current week with offset
         const getWeekDates = (offset: number) => {
@@ -2351,6 +2377,84 @@ export default function App() {
                 {userRole === 'transporter' ? (
                   /* ===== TRANSPORTER: Calendar Drag & Drop ===== */
                   <>
+                  {/* ===== TOP: 일별 요약 바 (요청건수·자산·중량·권장차량) ===== */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+                    <div className="p-3 border-b border-slate-100 flex items-center justify-between">
+                      <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <CalendarDays className="w-4 h-4 text-indigo-600" />
+                        일별 배차 요약
+                        <span className="text-xs font-normal text-slate-400">
+                          {weekDates.length > 0 && `${weekDates[0].date.getMonth() + 1}/${weekDates[0].date.getDate()} ~ ${weekDates[weekDates.length - 1].date.getMonth() + 1}/${weekDates[weekDates.length - 1].date.getDate()}`}
+                        </span>
+                      </h2>
+                      <div className="flex items-center gap-3 text-[11px]">
+                        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-slate-500">1톤 (≤800kg)</span></span>
+                        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500"></span><span className="text-slate-500">3.5톤 (≤2t)</span></span>
+                        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500"></span><span className="text-slate-500">5톤 (≤5t)</span></span>
+                        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500"></span><span className="text-slate-500">복수</span></span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-5 divide-x divide-slate-100">
+                      {weekDates.map(d => {
+                        const dayEmissions = dispatchableEmissions.filter(e => e.collectionDate === d.key);
+                        const assetCount = dayEmissions.reduce((sum, e) => sum + (e.assetCount || 0), 0);
+                        const totalWeightKg = dayEmissions.reduce((sum, e) => sum + parseWeight((e as { totalWeight?: string }).totalWeight), 0);
+                        const hasCritical = dayEmissions.some(e => (e as { securityGrade?: string }).securityGrade === '극비');
+                        const rec = recommendVehicles(totalWeightKg, hasCritical);
+                        const todayStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+                        const isToday = d.key === todayStr;
+                        const isPeak = dayEmissions.length >= 4;
+                        return (
+                          <div key={d.key} className={cn(
+                            "p-3 min-h-[110px]",
+                            isToday && "bg-indigo-50/30",
+                            isPeak && "bg-rose-50/30"
+                          )}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={cn(
+                                "text-xs font-bold",
+                                isToday ? "text-indigo-700" : "text-slate-600"
+                              )}>{d.label}{isToday ? ' · 오늘' : ''}</span>
+                              {isPeak && <span className="px-1.5 py-0.5 bg-rose-500 text-white rounded text-[9px] font-black">⚡ 피크</span>}
+                            </div>
+                            <div className="grid grid-cols-3 gap-1 mb-2">
+                              <div className="bg-slate-50 rounded-md p-1.5 text-center">
+                                <p className="text-[9px] text-slate-400 font-bold">요청</p>
+                                <p className="text-sm font-black text-slate-900">{dayEmissions.length}건</p>
+                              </div>
+                              <div className="bg-slate-50 rounded-md p-1.5 text-center">
+                                <p className="text-[9px] text-slate-400 font-bold">자산</p>
+                                <p className="text-sm font-black text-slate-900">{assetCount}</p>
+                              </div>
+                              <div className="bg-slate-50 rounded-md p-1.5 text-center">
+                                <p className="text-[9px] text-slate-400 font-bold">중량</p>
+                                <p className="text-sm font-black text-slate-900">{totalWeightKg >= 1000 ? `${(totalWeightKg / 1000).toFixed(1)}t` : `${totalWeightKg}kg`}</p>
+                              </div>
+                            </div>
+                            <div className={cn(
+                              "rounded-md p-2 text-center border",
+                              rec.size === 'none' ? "bg-slate-50 border-slate-200" :
+                              rec.size === '1ton' ? "bg-emerald-50 border-emerald-200" :
+                              rec.size === '3.5ton' ? "bg-blue-50 border-blue-200" :
+                              rec.size === '5ton' ? "bg-amber-50 border-amber-200" :
+                              "bg-rose-50 border-rose-200"
+                            )}>
+                              <p className="text-[9px] font-bold text-slate-400">🚛 권장 차량</p>
+                              <p className={cn(
+                                "text-xs font-black mt-0.5",
+                                rec.size === 'none' ? "text-slate-400" :
+                                rec.size === '1ton' ? "text-emerald-700" :
+                                rec.size === '3.5ton' ? "text-blue-700" :
+                                rec.size === '5ton' ? "text-amber-700" :
+                                "text-rose-700"
+                              )}>{rec.text}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div className="flex gap-4" style={{ minHeight: 520 }}>
                     {/* LEFT PANEL: Request list (25%) */}
                     <div className="w-[25%] min-w-[240px] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
