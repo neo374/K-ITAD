@@ -278,14 +278,42 @@ export default function App() {
   const [emissionStatusFilter, setEmissionStatusFilter] = useState('전체');
 
   // 배출신청 내역 Mock 데이터
+  // Helper: compute date string relative to Monday of current week (weekOffset weeks away, dayOffset days after Monday)
+  const _demoToday = new Date();
+  const _demoDayOfWeek = _demoToday.getDay();
+  const _demoMonday = new Date(_demoToday);
+  _demoMonday.setDate(_demoToday.getDate() - (_demoDayOfWeek === 0 ? 6 : _demoDayOfWeek - 1));
+  const demoDate = (weekOffset: number, dayOffset: number) => {
+    const d = new Date(_demoMonday);
+    d.setDate(_demoMonday.getDate() + weekOffset * 7 + dayOffset);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   const [emissionRequests, setEmissionRequests] = useState([
-    { id: 'DSP-2026-00123', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '운송중' as string, createdAt: '2026-03-20 09:30', assetCount: 8, assetSummary: 'Dell PowerEdge R740 외 7대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: '2026-03-22', address: '서울 강남구 테헤란로 521', processing: '재활용 우선', securityGrade: '기밀', transportId: 'TRN-2026-00051', totalWeight: '420kg' },
-    { id: 'DSP-2026-00124', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '운송중' as string, createdAt: '2026-03-20 10:15', assetCount: 23, assetSummary: 'HP EliteDesk 800 외 22대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: '2026-03-22', address: '서울 서초구 반포대로 58', processing: '재활용 우선', securityGrade: '중요', transportId: 'TRN-2026-00052', totalWeight: '280kg' },
-    { id: 'DSP-2026-00125', company: '현대모비스 DX실', applicant: '김현대', department: 'DX혁신팀', contact: '010-5555-6666', email: 'kim@mobis.com', status: '운송중' as string, createdAt: '2026-03-21 14:00', assetCount: 15, assetSummary: 'Lenovo ThinkStation 외 14대', deletionGrade: '완전파괴(DoD 5220.22-M)', collectionDate: '2026-03-23', address: '경기 성남시 분당구 판교로 256', processing: '물리파쇄 + 재활용', securityGrade: '일반', transportId: 'TRN-2026-00053', totalWeight: '600kg' },
-    { id: 'DSP-2026-00120', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '처리완료' as string, createdAt: '2026-03-18 08:00', assetCount: 31, assetSummary: 'Dell Optiplex 7090 외 30대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: '2026-03-19', address: '서울 영등포구 여의대로 108', processing: '재활용 우선', securityGrade: '기밀', transportId: 'TRN-2026-00049', totalWeight: '350kg' },
-    { id: 'DSP-2026-00121', company: '한화시스템', applicant: '이한화', department: '클라우드사업부', contact: '010-7777-8888', email: 'lee@hanwha.com', status: '처리완료' as string, createdAt: '2026-03-18 09:30', assetCount: 12, assetSummary: 'Samsung SSD PM9A3 외 11개', deletionGrade: '완전파괴(DoD 5220.22-M)', collectionDate: '2026-03-19', address: '서울 종로구 세종대로 175', processing: '물리파쇄', securityGrade: '중요', transportId: 'TRN-2026-00050', totalWeight: '96kg' },
-    { id: 'DSP-2026-00126', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '신청완료' as string, createdAt: '2026-03-24 11:00', assetCount: 5, assetSummary: 'MacBook Pro 16 외 4대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: '2026-03-28', address: '서울 강남구 테헤란로 521', processing: '재활용 우선', securityGrade: '일반', transportId: '', totalWeight: '15kg' },
-    { id: 'DSP-2026-00127', company: 'LG CNS', applicant: '박엘지', department: 'IT운영팀', contact: '010-9999-0000', email: 'park@lgcns.com', status: '접수확인' as string, createdAt: '2026-03-24 13:45', assetCount: 40, assetSummary: 'HP ProLiant DL380 외 39대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: '2026-03-30', address: '서울 마포구 월드컵북로 56길 19', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '1,200kg' },
+    // ===== 지난 주 (완료된 운송) =====
+    { id: 'DSP-2026-00120', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '처리완료' as string, createdAt: '2026-03-18 08:00', assetCount: 31, assetSummary: 'Dell Optiplex 7090 외 30대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(-1, 0), address: '서울 영등포구 여의대로 108', processing: '재활용 우선', securityGrade: '기밀', transportId: 'TRN-2026-00049', totalWeight: '350kg', assignedDriver: '박운송' },
+    { id: 'DSP-2026-00121', company: '한화시스템', applicant: '이한화', department: '클라우드사업부', contact: '010-7777-8888', email: 'lee@hanwha.com', status: '처리완료' as string, createdAt: '2026-03-18 09:30', assetCount: 12, assetSummary: 'Samsung SSD PM9A3 외 11개', deletionGrade: '완전파괴(DoD 5220.22-M)', collectionDate: demoDate(-1, 1), address: '서울 종로구 세종대로 175', processing: '물리파쇄', securityGrade: '중요', transportId: 'TRN-2026-00050', totalWeight: '96kg', assignedDriver: '김기사' },
+    { id: 'DSP-2026-00115', company: '네이버 클라우드', applicant: '정네이', department: '인프라운영팀', contact: '010-2323-4545', email: 'jung@navercorp.com', status: '처리완료' as string, createdAt: '2026-03-15 14:00', assetCount: 18, assetSummary: 'Dell R650 서버 외 17대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(-1, 2), address: '경기 성남시 분당구 정자로 178', processing: '재활용 우선', securityGrade: '극비', transportId: 'TRN-2026-00044', totalWeight: '520kg', assignedDriver: '이운전' },
+    { id: 'DSP-2026-00116', company: 'KT IT센터', applicant: '최케이티', department: 'IT기획팀', contact: '010-4567-8901', email: 'choi@kt.com', status: '처리완료' as string, createdAt: '2026-03-16 10:00', assetCount: 9, assetSummary: 'HP ProLiant DL380 외 8대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(-1, 3), address: '서울 종로구 세종대로 178', processing: '재활용 우선', securityGrade: '기밀', transportId: 'TRN-2026-00045', totalWeight: '245kg', assignedDriver: '박운송' },
+    { id: 'DSP-2026-00117', company: 'LG CNS', applicant: '김엘지', department: 'Cloud사업부', contact: '010-3434-5656', email: 'kim@lgcns.com', status: '처리완료' as string, createdAt: '2026-03-16 15:30', assetCount: 14, assetSummary: 'Lenovo ThinkStation 외 13대', deletionGrade: '완전파괴(DoD 5220.22-M)', collectionDate: demoDate(-1, 4), address: '서울 마포구 월드컵북로 396', processing: '물리파쇄 + 재활용', securityGrade: '중요', transportId: 'TRN-2026-00046', totalWeight: '380kg', assignedDriver: '김기사' },
+
+    // ===== 이번 주 (운송중 + 완료 예정) =====
+    { id: 'DSP-2026-00123', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '운송중' as string, createdAt: '2026-03-20 09:30', assetCount: 8, assetSummary: 'Dell PowerEdge R740 외 7대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 0), address: '서울 강남구 테헤란로 521', processing: '재활용 우선', securityGrade: '기밀', transportId: 'TRN-2026-00051', totalWeight: '420kg', assignedDriver: '박운송' },
+    { id: 'DSP-2026-00124', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '운송중' as string, createdAt: '2026-03-20 10:15', assetCount: 23, assetSummary: 'HP EliteDesk 800 외 22대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 1), address: '서울 서초구 반포대로 58', processing: '재활용 우선', securityGrade: '중요', transportId: 'TRN-2026-00052', totalWeight: '280kg', assignedDriver: '김기사' },
+    { id: 'DSP-2026-00125', company: '현대모비스 DX실', applicant: '김현대', department: 'DX혁신팀', contact: '010-5555-6666', email: 'kim@mobis.com', status: '운송중' as string, createdAt: '2026-03-21 14:00', assetCount: 15, assetSummary: 'Lenovo ThinkStation 외 14대', deletionGrade: '완전파괴(DoD 5220.22-M)', collectionDate: demoDate(0, 2), address: '경기 성남시 분당구 판교로 256', processing: '물리파쇄 + 재활용', securityGrade: '일반', transportId: 'TRN-2026-00053', totalWeight: '600kg', assignedDriver: '이운전' },
+    { id: 'DSP-2026-00128', company: '삼성전자 DS부문', applicant: '김삼성', department: '반도체사업부', contact: '010-6161-7171', email: 'kim@samsung.com', status: '운송중' as string, createdAt: '2026-03-22 09:00', assetCount: 20, assetSummary: 'Dell R740 서버 외 19대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 3), address: '경기 화성시 동탄순환대로 200', processing: '재활용 우선', securityGrade: '극비', transportId: 'TRN-2026-00054', totalWeight: '580kg', assignedDriver: '박운송' },
+
+    // ===== 이번 주 배차대기 (신청완료/접수확인) =====
+    { id: 'DSP-2026-00130', company: '우아한형제들', applicant: '이배민', department: '플랫폼운영팀', contact: '010-8282-9191', email: 'lee@woowahan.com', status: '신청완료' as string, createdAt: '2026-03-23 10:00', assetCount: 11, assetSummary: 'MacBook Pro 16 외 10대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 3), address: '서울 송파구 올림픽로 300', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '33kg' },
+    { id: 'DSP-2026-00131', company: '카카오엔터프라이즈', applicant: '박카카오', department: 'IT운영팀', contact: '010-9393-1010', email: 'park@kakaoent.com', status: '신청완료' as string, createdAt: '2026-03-23 11:30', assetCount: 17, assetSummary: 'HP ProBook 외 16대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 4), address: '경기 성남시 분당구 판교역로 235', processing: '재활용 우선', securityGrade: '중요', transportId: '', totalWeight: '55kg' },
+    { id: 'DSP-2026-00126', company: 'SKT IT인프라팀', applicant: '홍길동', department: 'IT인프라팀', contact: '010-1234-5678', email: 'hong@skt.com', status: '신청완료' as string, createdAt: '2026-03-24 11:00', assetCount: 5, assetSummary: 'MacBook Pro 16 외 4대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(0, 4), address: '서울 강남구 테헤란로 521', processing: '재활용 우선', securityGrade: '일반', transportId: '', totalWeight: '15kg' },
+    { id: 'DSP-2026-00127', company: 'LG CNS', applicant: '박엘지', department: 'IT운영팀', contact: '010-9999-0000', email: 'park@lgcns.com', status: '접수확인' as string, createdAt: '2026-03-24 13:45', assetCount: 40, assetSummary: 'HP ProLiant DL380 외 39대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(1, 1), address: '서울 마포구 월드컵북로 56길 19', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '1,200kg' },
+
+    // ===== 다음 주 배차대기 =====
+    { id: 'DSP-2026-00132', company: '현대자동차 R&D센터', applicant: '김현대', department: '자율주행사업부', contact: '010-5151-6262', email: 'kim@hyundai.com', status: '신청완료' as string, createdAt: '2026-03-25 09:00', assetCount: 28, assetSummary: 'NVIDIA DGX A100 외 27대', deletionGrade: '완전파괴(DoD 5220.22-M)', collectionDate: demoDate(1, 0), address: '경기 화성시 현대연구단지 150', processing: '물리파쇄 + 재활용', securityGrade: '극비', transportId: '', totalWeight: '1,450kg' },
+    { id: 'DSP-2026-00133', company: '쿠팡', applicant: '이쿠팡', department: '인프라팀', contact: '010-7272-8383', email: 'lee@coupang.com', status: '신청완료' as string, createdAt: '2026-03-25 14:00', assetCount: 22, assetSummary: 'Dell PowerEdge R640 외 21대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(1, 2), address: '서울 송파구 송파대로 570', processing: '재활용 우선', securityGrade: '중요', transportId: '', totalWeight: '610kg' },
+    { id: 'DSP-2026-00134', company: '토스 (비바리퍼블리카)', applicant: '조토스', department: 'SRE팀', contact: '010-4848-5959', email: 'cho@toss.im', status: '신청완료' as string, createdAt: '2026-03-26 10:15', assetCount: 14, assetSummary: 'Mac Mini M2 외 13대', deletionGrade: '보안삭제(NIST 800-88)', collectionDate: demoDate(1, 3), address: '서울 강남구 테헤란로 142', processing: '재활용 우선', securityGrade: '기밀', transportId: '', totalWeight: '38kg' },
+    { id: 'DSP-2026-00135', company: '한국전력공사', applicant: '박한전', department: '정보보안팀', contact: '010-1717-2828', email: 'park@kepco.co.kr', status: '신청완료' as string, createdAt: '2026-03-26 15:30', assetCount: 35, assetSummary: 'HP ProLiant DL380 외 34대', deletionGrade: '완전파괴(DoD 5220.22-M)', collectionDate: demoDate(1, 4), address: '전남 나주시 전력로 55', processing: '물리파쇄', securityGrade: '극비', transportId: '', totalWeight: '1,080kg' },
   ]);
 
   const filteredEmissions = emissionRequests.filter(e => {
@@ -350,14 +378,29 @@ export default function App() {
     securityPledge: true,
   });
 
-  // Calendar dispatch state
-  const [calendarAssignments, setCalendarAssignments] = useState<Record<string, { requestId: string; company: string; assetSummary: string }>>({});
+  // Calendar dispatch state — pre-populate with completed/in-transit emissions that have an assigned driver
+  const [calendarAssignments, setCalendarAssignments] = useState<Record<string, { requestId: string; company: string; assetSummary: string; isCompleted?: boolean }>>(() => {
+    const init: Record<string, { requestId: string; company: string; assetSummary: string; isCompleted?: boolean }> = {};
+    emissionRequests.forEach(e => {
+      const anyE = e as typeof e & { assignedDriver?: string };
+      if (anyE.assignedDriver && e.collectionDate && e.transportId) {
+        const cellKey = `${anyE.assignedDriver}__${e.collectionDate}`;
+        init[cellKey] = {
+          requestId: e.id,
+          company: e.company,
+          assetSummary: e.assetSummary,
+          isCompleted: true,
+        };
+      }
+    });
+    return init;
+  });
   const [draggedRequest, setDraggedRequest] = useState<string | null>(null);
   const [dispatchDetailModal, setDispatchDetailModal] = useState<string | null>(null);
   const [driverDetailModal, setDriverDetailModal] = useState<string | null>(null);
   const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
 
-  const dispatchableEmissions = emissionRequests.filter(e => ['신청완료', '승인대기', '운송중'].includes(e.status));
+  const dispatchableEmissions = emissionRequests.filter(e => ['신청완료', '승인대기', '접수확인', '운송중', '처리완료'].includes(e.status));
   const getDispatchStatus = (emissionId: string) => {
     const t = transportMonitorData.transports.find(t => t.emissionId === emissionId);
     if (t) return '배차완료';
@@ -2502,20 +2545,34 @@ export default function App() {
                                       }}
                                     >
                                       {assignment ? (
-                                        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2 text-left relative group">
-                                          <button
-                                            onClick={() => {
-                                              setCalendarAssignments(prev => {
-                                                const next = { ...prev };
-                                                delete next[cellKey];
-                                                return next;
-                                              });
-                                            }}
-                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                          >
-                                            ×
-                                          </button>
-                                          <p className="text-[10px] font-bold text-indigo-700 truncate">{assignment.requestId}</p>
+                                        <div className={cn(
+                                          "rounded-lg p-2 text-left relative group border",
+                                          assignment.isCompleted
+                                            ? "bg-emerald-50 border-emerald-200"
+                                            : "bg-indigo-50 border-indigo-200"
+                                        )}>
+                                          {!assignment.isCompleted && (
+                                            <button
+                                              onClick={() => {
+                                                setCalendarAssignments(prev => {
+                                                  const next = { ...prev };
+                                                  delete next[cellKey];
+                                                  return next;
+                                                });
+                                              }}
+                                              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                              ×
+                                            </button>
+                                          )}
+                                          <div className="flex items-center justify-between gap-1">
+                                            <p className={cn("text-[10px] font-bold truncate",
+                                              assignment.isCompleted ? "text-emerald-700" : "text-indigo-700"
+                                            )}>{assignment.requestId}</p>
+                                            {assignment.isCompleted && (
+                                              <span className="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1 py-0.5 rounded shrink-0">완료</span>
+                                            )}
+                                          </div>
                                           <p className="text-[10px] text-slate-500 truncate">{assignment.company}</p>
                                           <p className="text-[10px] text-slate-400 truncate mt-0.5">{assignment.assetSummary}</p>
                                         </div>
@@ -2536,11 +2593,18 @@ export default function App() {
                       <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
                         <div className="flex items-center gap-4 text-xs">
                           <span className="text-slate-500">
-                            배정: <strong className="text-indigo-700">{Object.keys(calendarAssignments).length}건</strong>
+                            완료: <strong className="text-emerald-700">{Object.values(calendarAssignments).filter(a => a.isCompleted).length}건</strong>
+                          </span>
+                          <span className="text-slate-500">
+                            신규배정: <strong className="text-indigo-700">{Object.values(calendarAssignments).filter(a => !a.isCompleted).length}건</strong>
                           </span>
                           <span className="text-slate-500">
                             미배정: <strong className="text-amber-600">{unassignedRequests.length}건</strong>
                           </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px]">
+                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-emerald-200 border border-emerald-400"></span><span className="text-slate-500">완료</span></span>
+                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-indigo-200 border border-indigo-400"></span><span className="text-slate-500">신규 배정</span></span>
                         </div>
                       </div>
                     </div>
