@@ -653,6 +653,8 @@ export default function App() {
   // ===== Disposal (데이터 폐기) State =====
   const [disposalTab, setDisposalTab] = useState<'receiving' | 'status' | 'work' | 'verify' | 'stats'>('receiving');
   const [receivingMonth, setReceivingMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [selectedReceivingDate, setSelectedReceivingDate] = useState<string | null>(null);
+  const [receivingDetailModal, setReceivingDetailModal] = useState<string | null>(null);
   const [disposalStepFilter, setDisposalStepFilter] = useState('전체');
   const [disposalSearch, setDisposalSearch] = useState('');
   const [disposalMethodFilter, setDisposalMethodFilter] = useState('전체');
@@ -3459,21 +3461,46 @@ export default function App() {
               <div className="p-6">
                 {/* ===== 입고 현황 캘린더 ===== */}
                 {disposalTab === 'receiving' && (() => {
-                  // 입고 샘플 데이터
-                  const receivingData = [
-                    { id: 'RCV-001', emissionId: 'DSP-2026-00123', company: 'K-ITAD 전자', department: 'IT인프라팀', assetCount: 8, assetTypes: '서버 3, PC 2, 노트북 3', date: '2026-03-10', status: '입고완료' as const },
-                    { id: 'RCV-002', emissionId: 'DSP-2026-00120', company: '현대모비스', department: 'DX실', assetCount: 3, assetTypes: '서버 2, PC 1', date: '2026-03-11', status: '입고완료' as const },
-                    { id: 'RCV-003', emissionId: 'DSP-2026-00124', company: 'SKT', department: 'IT인프라팀', assetCount: 4, assetTypes: 'PC 2, 노트북 2', date: '2026-03-14', status: '입고완료' as const },
-                    { id: 'RCV-004', emissionId: 'DSP-2026-00118', company: '삼성전자', department: '정보보안팀', assetCount: 12, assetTypes: '서버 4, PC 5, 노트북 3', date: '2026-03-17', status: '입고완료' as const },
-                    { id: 'RCV-005', emissionId: 'DSP-2026-00125', company: 'LG전자', department: 'IT운영팀', assetCount: 6, assetTypes: '서버 2, 노트북 4', date: '2026-03-20', status: '입고완료' as const },
-                    { id: 'RCV-006', emissionId: 'DSP-2026-00126', company: '카카오', department: '인프라팀', assetCount: 15, assetTypes: '서버 8, PC 4, 네트워크 3', date: '2026-03-24', status: '입고완료' as const },
-                    { id: 'RCV-007', emissionId: 'DSP-2026-00127', company: '네이버', department: 'IT보안팀', assetCount: 10, assetTypes: '서버 5, PC 3, 노트북 2', date: '2026-03-27', status: '입고완료' as const },
-                    { id: 'RCV-008', emissionId: 'DSP-2026-00128', company: '우리은행', department: 'IT센터', assetCount: 20, assetTypes: '서버 10, PC 6, 노트북 4', date: '2026-03-31', status: '입고예정' as const },
-                    { id: 'RCV-009', emissionId: 'DSP-2026-00129', company: 'KB국민은행', department: '전산팀', assetCount: 8, assetTypes: '서버 3, PC 3, 노트북 2', date: '2026-04-02', status: '입고예정' as const },
-                    { id: 'RCV-010', emissionId: 'DSP-2026-00130', company: '포스코', department: 'DX센터', assetCount: 14, assetTypes: '서버 6, PC 5, 네트워크 3', date: '2026-04-04', status: '입고예정' as const },
-                    { id: 'RCV-011', emissionId: 'DSP-2026-00131', company: '현대자동차', department: 'IT인프라팀', assetCount: 25, assetTypes: '서버 12, PC 8, 노트북 5', date: '2026-04-07', status: '입고예정' as const },
-                    { id: 'RCV-012', emissionId: 'DSP-2026-00132', company: 'SK하이닉스', department: '정보보호팀', assetCount: 18, assetTypes: '서버 9, PC 5, 노트북 4', date: '2026-04-10', status: '입고예정' as const },
-                    { id: 'RCV-013', emissionId: 'DSP-2026-00133', company: '삼성SDI', department: 'IT팀', assetCount: 7, assetTypes: '서버 2, PC 3, 노트북 2', date: '2026-04-14', status: '입고예정' as const },
+                  // 입고 샘플 데이터 — 현재 월 기준 동적 날짜 생성
+                  const _now = new Date();
+                  const _curY = _now.getFullYear();
+                  const _curM = _now.getMonth();
+                  const _prevY = _curM === 0 ? _curY - 1 : _curY;
+                  const _prevM = _curM === 0 ? 11 : _curM - 1;
+                  const _nextY = _curM === 11 ? _curY + 1 : _curY;
+                  const _nextM = _curM === 11 ? 0 : _curM + 1;
+                  const _mkDate = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                  const _todayD = _now.getDate();
+                  const receivingData: { id: string; emissionId: string; company: string; department: string; assetCount: number; assetTypes: string; date: string; status: '입고완료' | '입고예정' }[] = [
+                    // 지난 달 (입고완료)
+                    { id: 'RCV-001', emissionId: 'DSP-2026-00115', company: '네이버 클라우드', department: '인프라운영팀', assetCount: 18, assetTypes: '서버 10, PC 5, 노트북 3', date: _mkDate(_prevY, _prevM, 22), status: '입고완료' },
+                    { id: 'RCV-002', emissionId: 'DSP-2026-00116', company: 'KT IT센터', department: 'IT기획팀', assetCount: 9, assetTypes: '서버 5, PC 2, 노트북 2', date: _mkDate(_prevY, _prevM, 25), status: '입고완료' },
+                    { id: 'RCV-003', emissionId: 'DSP-2026-00117', company: 'LG CNS', department: 'Cloud사업부', assetCount: 14, assetTypes: '서버 6, PC 5, 노트북 3', date: _mkDate(_prevY, _prevM, 28), status: '입고완료' },
+                    // 이번 달 초반 (입고완료)
+                    { id: 'RCV-004', emissionId: 'DSP-2026-00120', company: 'SKT IT인프라팀', department: 'IT인프라팀', assetCount: 31, assetTypes: '서버 12, PC 14, 노트북 5', date: _mkDate(_curY, _curM, 3), status: '입고완료' },
+                    { id: 'RCV-005', emissionId: 'DSP-2026-00121', company: '한화시스템', department: '클라우드사업부', assetCount: 12, assetTypes: 'SSD 12개', date: _mkDate(_curY, _curM, 5), status: '입고완료' },
+                    { id: 'RCV-006', emissionId: 'DSP-2026-00118', company: '삼성전자', department: '정보보안팀', assetCount: 22, assetTypes: '서버 10, PC 8, 노트북 4', date: _mkDate(_curY, _curM, 6), status: '입고완료' },
+                    { id: 'RCV-007', emissionId: 'DSP-2026-00119', company: '현대자동차', department: 'DX센터', assetCount: 16, assetTypes: '서버 8, PC 5, 노트북 3', date: _mkDate(_curY, _curM, 7), status: '입고완료' },
+                    { id: 'RCV-008', emissionId: 'DSP-2026-00122', company: 'LG전자', department: 'IT운영팀', assetCount: 6, assetTypes: '서버 2, 노트북 4', date: _mkDate(_curY, _curM, 9), status: '입고완료' },
+                    { id: 'RCV-009', emissionId: 'DSP-2026-00123', company: 'SKT IT인프라팀', department: 'IT인프라팀', assetCount: 8, assetTypes: '서버 4, PC 2, 노트북 2', date: _mkDate(_curY, _curM, 10), status: '입고완료' },
+                    { id: 'RCV-010', emissionId: 'DSP-2026-00124', company: 'SKT', department: 'IT인프라팀', assetCount: 23, assetTypes: 'PC 15, 노트북 8', date: _mkDate(_curY, _curM, 10), status: '입고완료' },
+                    { id: 'RCV-011', emissionId: 'DSP-2026-00125', company: '현대모비스', department: 'DX혁신팀', assetCount: 15, assetTypes: '서버 6, PC 5, 노트북 4', date: _mkDate(_curY, _curM, 11), status: '입고완료' },
+                    { id: 'RCV-012', emissionId: 'DSP-2026-00128', company: '삼성전자 DS', department: '반도체사업부', assetCount: 20, assetTypes: '서버 15, PC 3, 노트북 2', date: _mkDate(_curY, _curM, Math.min(_todayD, 28)), status: '입고완료' },
+                    { id: 'RCV-013', emissionId: 'DSP-2026-00141', company: '우리은행', department: 'IT센터', assetCount: 27, assetTypes: '서버 14, PC 9, 노트북 4', date: _mkDate(_curY, _curM, Math.min(_todayD, 28)), status: '입고완료' },
+                    // 이번 달 후반 (입고예정)
+                    { id: 'RCV-014', emissionId: 'DSP-2026-00127', company: 'LG CNS', department: 'IT운영팀', assetCount: 40, assetTypes: '서버 20, PC 15, 노트북 5', date: _mkDate(_curY, _curM, Math.min(_todayD + 2, 28)), status: '입고예정' },
+                    { id: 'RCV-015', emissionId: 'DSP-2026-00130', company: '우아한형제들', department: '플랫폼운영팀', assetCount: 11, assetTypes: '노트북 11대', date: _mkDate(_curY, _curM, Math.min(_todayD + 3, 28)), status: '입고예정' },
+                    { id: 'RCV-016', emissionId: 'DSP-2026-00129', company: 'KB국민은행', department: '전산팀', assetCount: 8, assetTypes: '서버 3, PC 3, 노트북 2', date: _mkDate(_curY, _curM, Math.min(_todayD + 4, 28)), status: '입고예정' },
+                    { id: 'RCV-017', emissionId: 'DSP-2026-00131', company: '카카오엔터프라이즈', department: 'IT운영팀', assetCount: 17, assetTypes: '서버 8, PC 6, 노트북 3', date: _mkDate(_curY, _curM, Math.min(_todayD + 5, 28)), status: '입고예정' },
+                    { id: 'RCV-018', emissionId: 'DSP-2026-00133', company: '쿠팡', department: '인프라팀', assetCount: 22, assetTypes: '서버 12, PC 7, 노트북 3', date: _mkDate(_curY, _curM, Math.min(_todayD + 7, 28)), status: '입고예정' },
+                    { id: 'RCV-019', emissionId: 'DSP-2026-00132', company: '현대자동차 R&D', department: '자율주행사업부', assetCount: 28, assetTypes: '서버 15, GPU 8, 노트북 5', date: _mkDate(_curY, _curM, Math.min(_todayD + 8, 28)), status: '입고예정' },
+                    { id: 'RCV-020', emissionId: 'DSP-2026-00134', company: '토스', department: 'SRE팀', assetCount: 14, assetTypes: 'Mac Mini 14대', date: _mkDate(_curY, _curM, Math.min(_todayD + 10, 28)), status: '입고예정' },
+                    { id: 'RCV-021', emissionId: 'DSP-2026-00135', company: '한국전력공사', department: '정보보안팀', assetCount: 35, assetTypes: '서버 15, PC 12, 노트북 8', date: _mkDate(_curY, _curM, Math.min(_todayD + 12, 28)), status: '입고예정' },
+                    // 다음 달 (입고예정)
+                    { id: 'RCV-022', emissionId: 'DSP-2026-00137', company: '포스코', department: 'DX센터', assetCount: 14, assetTypes: '서버 6, PC 5, 네트워크 3', date: _mkDate(_nextY, _nextM, 2), status: '입고예정' },
+                    { id: 'RCV-023', emissionId: 'DSP-2026-00138', company: 'SK하이닉스', department: '정보보호팀', assetCount: 18, assetTypes: '서버 9, PC 5, 노트북 4', date: _mkDate(_nextY, _nextM, 5), status: '입고예정' },
+                    { id: 'RCV-024', emissionId: 'DSP-2026-00139', company: '삼성SDI', department: 'IT팀', assetCount: 7, assetTypes: '서버 2, PC 3, 노트북 2', date: _mkDate(_nextY, _nextM, 8), status: '입고예정' },
+                    { id: 'RCV-025', emissionId: 'DSP-2026-00140', company: 'KAIST 전산실', department: '전산관리팀', assetCount: 32, assetTypes: '서버 12, PC 15, 네트워크 5', date: _mkDate(_nextY, _nextM, 12), status: '입고예정' },
                   ];
 
                   const year = receivingMonth.getFullYear();
@@ -3540,25 +3567,37 @@ export default function App() {
                             const events = day ? getEventsForDay(day) : [];
                             const dateStr = day ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '';
                             const isToday = dateStr === todayStr;
+                            const isSelected = dateStr === selectedReceivingDate;
                             const dayOfWeek = idx % 7;
+                            const hasEvents = events.length > 0;
                             return (
-                              <div key={idx} className={cn(
-                                "min-h-[64px] border-b border-r border-slate-100 p-1",
-                                !day && "bg-slate-50/50",
-                                isToday && "bg-rose-50/40"
-                              )}>
+                              <div
+                                key={idx}
+                                onClick={() => {
+                                  if (day && hasEvents) {
+                                    setSelectedReceivingDate(isSelected ? null : dateStr);
+                                  }
+                                }}
+                                className={cn(
+                                  "min-h-[64px] border-b border-r border-slate-100 p-1 transition-colors",
+                                  !day && "bg-slate-50/50",
+                                  isToday && !isSelected && "bg-rose-50/40",
+                                  isSelected && "bg-indigo-100 ring-2 ring-indigo-400 ring-inset",
+                                  day && hasEvents && "cursor-pointer hover:bg-indigo-50/60"
+                                )}
+                              >
                                 {day && (
                                   <>
                                     <div className={cn(
                                       "text-[10px] font-bold mb-0.5 w-5 h-5 flex items-center justify-center rounded-full",
-                                      isToday ? "bg-rose-600 text-white" : dayOfWeek === 0 ? "text-rose-500" : dayOfWeek === 6 ? "text-blue-500" : "text-slate-600"
+                                      isToday ? "bg-rose-600 text-white" : isSelected ? "bg-indigo-600 text-white" : dayOfWeek === 0 ? "text-rose-500" : dayOfWeek === 6 ? "text-blue-500" : "text-slate-600"
                                     )}>
                                       {day}
                                     </div>
                                     <div className="space-y-0.5">
                                       {events.slice(0, 2).map(ev => (
                                         <div key={ev.id} className={cn(
-                                          "px-1 py-0.5 rounded text-[9px] font-bold truncate cursor-default leading-tight",
+                                          "px-1 py-0.5 rounded text-[9px] font-bold truncate leading-tight",
                                           ev.status === '입고완료' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
                                         )} title={`${ev.company} · ${ev.assetTypes} (${ev.assetCount}건)`}>
                                           {ev.company} ({ev.assetCount})
@@ -3579,7 +3618,21 @@ export default function App() {
                       {/* 입고 목록 테이블 */}
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-sm font-bold text-slate-700">입고 목록 <span className="text-xs text-slate-400 font-normal">({year}년 {month + 1}월)</span></h4>
+                          <h4 className="text-sm font-bold text-slate-700">
+                            입고 목록 {selectedReceivingDate ? (
+                              <span className="text-xs text-indigo-600 font-bold">({selectedReceivingDate} 선택됨)</span>
+                            ) : (
+                              <span className="text-xs text-slate-400 font-normal">({year}년 {month + 1}월 · 행 클릭 시 상세 보기)</span>
+                            )}
+                          </h4>
+                          {selectedReceivingDate && (
+                            <button
+                              onClick={() => setSelectedReceivingDate(null)}
+                              className="text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-2 py-1 rounded"
+                            >
+                              ✕ 필터 해제
+                            </button>
+                          )}
                         </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-left">
@@ -3596,29 +3649,199 @@ export default function App() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                              {receivingData.filter(r => {
-                                const rDate = new Date(r.date);
-                                return rDate.getFullYear() === year && rDate.getMonth() === month;
-                              }).map(r => (
-                                <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{r.id}</td>
-                                  <td className="px-4 py-3 text-sm text-rose-600 font-bold">{r.emissionId}</td>
-                                  <td className="px-4 py-3 text-sm font-medium text-slate-700">{r.company}</td>
-                                  <td className="px-4 py-3 text-sm text-slate-600">{r.department}</td>
-                                  <td className="px-4 py-3 text-sm font-bold text-slate-900">{r.assetCount}건</td>
-                                  <td className="px-4 py-3 text-xs text-slate-500">{r.assetTypes}</td>
-                                  <td className="px-4 py-3 text-sm text-slate-600">{r.date}</td>
-                                  <td className="px-4 py-3">
-                                    <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
-                                      r.status === '입고완료' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                                    )}>{r.status}</span>
-                                  </td>
-                                </tr>
-                              ))}
+                              {(() => {
+                                const filtered = receivingData.filter(r => {
+                                  if (selectedReceivingDate) return r.date === selectedReceivingDate;
+                                  const rDate = new Date(r.date);
+                                  return rDate.getFullYear() === year && rDate.getMonth() === month;
+                                });
+                                if (filtered.length === 0) {
+                                  return (
+                                    <tr>
+                                      <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400">
+                                        {selectedReceivingDate ? '선택한 날짜의 입고 내역이 없습니다.' : '이 달에 입고 내역이 없습니다.'}
+                                      </td>
+                                    </tr>
+                                  );
+                                }
+                                return filtered.map(r => (
+                                  <tr
+                                    key={r.id}
+                                    onClick={() => setReceivingDetailModal(r.emissionId)}
+                                    className="hover:bg-rose-50/50 transition-colors cursor-pointer"
+                                  >
+                                    <td className="px-4 py-3 text-sm font-bold text-slate-900">{r.id}</td>
+                                    <td className="px-4 py-3 text-sm text-rose-600 font-bold underline-offset-2 hover:underline">{r.emissionId}</td>
+                                    <td className="px-4 py-3 text-sm font-medium text-slate-700">{r.company}</td>
+                                    <td className="px-4 py-3 text-sm text-slate-600">{r.department}</td>
+                                    <td className="px-4 py-3 text-sm font-bold text-slate-900">{r.assetCount}건</td>
+                                    <td className="px-4 py-3 text-xs text-slate-500">{r.assetTypes}</td>
+                                    <td className="px-4 py-3 text-sm text-slate-600">{r.date}</td>
+                                    <td className="px-4 py-3">
+                                      <span className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold",
+                                        r.status === '입고완료' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                                      )}>{r.status}</span>
+                                    </td>
+                                  </tr>
+                                ));
+                              })()}
                             </tbody>
                           </table>
                         </div>
                       </div>
+
+                      {/* 입고 상세 모달 — 배출신청 내용 표시 */}
+                      {receivingDetailModal && (() => {
+                        const emission = emissionRequests.find(e => e.id === receivingDetailModal);
+                        const receiving = receivingData.find(r => r.emissionId === receivingDetailModal);
+                        if (!emission && !receiving) return null;
+                        return (
+                          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setReceivingDetailModal(null)}>
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              {/* 헤더 */}
+                              <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-rose-50 to-white">
+                                <div>
+                                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-rose-600" />
+                                    배출신청 상세정보
+                                  </h3>
+                                  <p className="text-sm text-slate-500 mt-1">
+                                    <span className="font-bold text-rose-600">{receivingDetailModal}</span>
+                                    {receiving && <span className="ml-2 text-slate-400">· 입고번호 {receiving.id}</span>}
+                                  </p>
+                                </div>
+                                <button onClick={() => setReceivingDetailModal(null)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                                  <X className="w-4 h-4 text-slate-500" />
+                                </button>
+                              </div>
+
+                              {/* 본문 */}
+                              <div className="p-5 overflow-y-auto flex-1 space-y-5">
+                                {emission ? (
+                                  <>
+                                    {/* 상태 요약 */}
+                                    <div className="grid grid-cols-3 gap-3">
+                                      <div className="bg-slate-50 rounded-xl p-3">
+                                        <p className="text-[10px] font-bold text-slate-400">처리 상태</p>
+                                        <p className="text-sm font-black text-slate-800 mt-1">{emission.status}</p>
+                                      </div>
+                                      <div className="bg-slate-50 rounded-xl p-3">
+                                        <p className="text-[10px] font-bold text-slate-400">입고 상태</p>
+                                        <p className={cn("text-sm font-black mt-1", receiving?.status === '입고완료' ? "text-emerald-600" : "text-amber-600")}>
+                                          {receiving?.status || '미입고'}
+                                        </p>
+                                      </div>
+                                      <div className="bg-slate-50 rounded-xl p-3">
+                                        <p className="text-[10px] font-bold text-slate-400">보안 등급</p>
+                                        <p className={cn("text-sm font-black mt-1",
+                                          emission.securityGrade === '극비' ? "text-rose-600" :
+                                          emission.securityGrade === '기밀' ? "text-purple-600" :
+                                          emission.securityGrade === '중요' ? "text-amber-600" : "text-slate-600"
+                                        )}>{emission.securityGrade}</p>
+                                      </div>
+                                    </div>
+
+                                    {/* 배출처 정보 */}
+                                    <div>
+                                      <h4 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                                        <Building2 className="w-4 h-4 text-slate-400" /> 배출처 정보
+                                      </h4>
+                                      <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+                                        {[
+                                          { k: '기업명', v: emission.company },
+                                          { k: '신청자 / 부서', v: `${emission.applicant} / ${emission.department}` },
+                                          { k: '연락처', v: emission.contact },
+                                          { k: '이메일', v: emission.email },
+                                          { k: '수거지', v: emission.address },
+                                          { k: '신청일시', v: emission.createdAt },
+                                          { k: '수거일', v: emission.collectionDate },
+                                        ].map((row, i) => (
+                                          <div key={i} className="flex items-center justify-between px-3 py-2">
+                                            <span className="text-xs text-slate-500 font-bold">{row.k}</span>
+                                            <span className="text-sm text-slate-800 font-medium">{row.v}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {/* 배출 자산 정보 */}
+                                    <div>
+                                      <h4 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                                        <Database className="w-4 h-4 text-slate-400" /> 배출 자산
+                                      </h4>
+                                      <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+                                        {[
+                                          { k: '총 자산수', v: `${emission.assetCount}건` },
+                                          { k: '자산 구성', v: emission.assetSummary },
+                                          { k: '총 중량', v: (emission as { totalWeight?: string }).totalWeight || '-' },
+                                          { k: '입고 자산 구성', v: receiving?.assetTypes || '-' },
+                                        ].map((row, i) => (
+                                          <div key={i} className="flex items-center justify-between px-3 py-2">
+                                            <span className="text-xs text-slate-500 font-bold">{row.k}</span>
+                                            <span className="text-sm text-slate-800 font-medium text-right max-w-[60%]">{row.v}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {/* 처리 요구사항 */}
+                                    <div>
+                                      <h4 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                                        <ShieldCheck className="w-4 h-4 text-slate-400" /> 처리 요구사항
+                                      </h4>
+                                      <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+                                        {[
+                                          { k: '데이터 삭제 등급', v: emission.deletionGrade },
+                                          { k: '처리 방식', v: emission.processing },
+                                          { k: '운송 번호', v: emission.transportId || '미배정' },
+                                        ].map((row, i) => (
+                                          <div key={i} className="flex items-center justify-between px-3 py-2">
+                                            <span className="text-xs text-slate-500 font-bold">{row.k}</span>
+                                            <span className="text-sm text-slate-800 font-medium">{row.v}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="py-12 text-center text-slate-400">
+                                    <FileText className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                                    <p className="text-sm font-bold">배출 신청 내역을 찾을 수 없습니다.</p>
+                                    <p className="text-xs mt-1">입고 정보: {receiving?.company} · {receiving?.assetCount}건</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 하단 */}
+                              <div className="p-4 border-t border-slate-200 flex items-center justify-end gap-2 bg-slate-50">
+                                <button
+                                  onClick={() => setReceivingDetailModal(null)}
+                                  className="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-300 transition-all"
+                                >
+                                  닫기
+                                </button>
+                                {emission && (
+                                  <button
+                                    onClick={() => {
+                                      setReceivingDetailModal(null);
+                                      setSelectedEmissionForDisposal(emission.id);
+                                      setDisposalTab('status');
+                                    }}
+                                    className="px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20"
+                                  >
+                                    작업 현황으로 이동 →
+                                  </button>
+                                )}
+                              </div>
+                            </motion.div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })()}
