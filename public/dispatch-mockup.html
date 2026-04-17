@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>배차관리 시안 · K-ITAD</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+  body { background: #f8fafc; }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+</style>
+</head>
+<body class="p-6">
+
+<div class="max-w-[1600px] mx-auto">
+
+  <!-- 페이지 헤더 -->
+  <div class="mb-6">
+    <h1 class="text-2xl font-black text-slate-900 flex items-center gap-2">
+      <span class="text-indigo-600">📦</span> 배차관리 · 주간 배차 계획
+      <span class="ml-2 text-xs font-bold px-2 py-1 bg-amber-100 text-amber-700 rounded-md">화면 시안 (MOCKUP)</span>
+    </h1>
+    <p class="text-sm text-slate-500 mt-1">일자별 배차 요청 총량을 한눈에 확인하고, 차량을 적재량에 맞춰 배정합니다.</p>
+  </div>
+
+  <!-- 글로벌 컨트롤 바 -->
+  <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-4 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+        <button class="p-1.5 rounded-lg hover:bg-white">
+          <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <div class="px-4 py-1.5 text-sm font-bold text-indigo-600 bg-white rounded-lg shadow-sm">
+          4/14 ~ 4/18 <span class="text-xs text-slate-400 font-normal">(이번 주)</span>
+        </div>
+        <button class="p-1.5 rounded-lg hover:bg-white">
+          <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div class="flex items-center gap-3 text-sm">
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span class="text-slate-600">완료 <strong class="text-emerald-700">5건</strong></span></span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span><span class="text-slate-600">배정 <strong class="text-indigo-700">2건</strong></span></span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span class="text-slate-600">미배정 <strong class="text-amber-700">8건</strong></span></span>
+        <span class="flex items-center gap-1.5"><span class="text-slate-600">총 <strong class="text-slate-900">15건</strong></span></span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl">📋 목록 보기</button>
+      <button class="px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-600/20">✓ 배차 확정</button>
+    </div>
+  </div>
+
+  <!-- 5일 Kanban 그리드 -->
+  <div class="grid grid-cols-5 gap-3">
+
+    <!-- ========= 월 4/14 ========= -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <!-- 요약 -->
+      <div class="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100/50 border-b border-indigo-100">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <p class="text-xs font-bold text-indigo-500">월요일</p>
+            <p class="text-xl font-black text-indigo-900">4/14</p>
+          </div>
+          <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[10px] font-bold">오늘</span>
+        </div>
+        <div class="grid grid-cols-3 gap-1 text-center my-3">
+          <div class="bg-white rounded-lg p-2">
+            <p class="text-[9px] font-bold text-slate-400">요청</p>
+            <p class="text-sm font-black text-slate-900">3건</p>
+          </div>
+          <div class="bg-white rounded-lg p-2">
+            <p class="text-[9px] font-bold text-slate-400">자산</p>
+            <p class="text-sm font-black text-slate-900">42대</p>
+          </div>
+          <div class="bg-white rounded-lg p-2">
+            <p class="text-[9px] font-bold text-slate-400">중량</p>
+            <p class="text-sm font-black text-slate-900">1.2t</p>
+          </div>
+        </div>
+        <!-- 권장 차량 -->
+        <div class="bg-white rounded-lg p-2.5 border border-indigo-200">
+          <p class="text-[10px] font-bold text-indigo-500 mb-1">🚛 권장 차량</p>
+          <p class="text-xs font-bold text-slate-800">3.5톤 1대</p>
+          <p class="text-[10px] text-slate-400">또는 1톤 2대</p>
+        </div>
+      </div>
+
+      <!-- 요청건 목록 -->
+      <div class="p-3 bg-slate-50/50 flex-1 min-h-[280px]">
+        <p class="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1">📋 요청 건 <span class="text-slate-400">(3)</span></p>
+        <div class="space-y-2">
+          <!-- 카드 1: 미배정 -->
+          <div class="bg-white rounded-lg p-2.5 border border-slate-200 hover:shadow-md cursor-grab">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-black text-indigo-600">DSP-00130</span>
+              <span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미배정</span>
+            </div>
+            <p class="text-xs font-bold text-slate-900">우아한형제들</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">서울 송파구</p>
+            <div class="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
+              <span>📦 11대</span>
+              <span>⚖️ 33kg</span>
+              <span class="ml-auto px-1 py-0.5 bg-purple-50 text-purple-700 rounded text-[9px] font-bold">기밀</span>
+            </div>
+          </div>
+          <!-- 카드 2: 배정됨 -->
+          <div class="bg-indigo-50 rounded-lg p-2.5 border border-indigo-200">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-black text-indigo-600">DSP-00123</span>
+              <span class="px-1.5 py-0.5 bg-indigo-200 text-indigo-700 rounded text-[9px] font-bold">배정됨</span>
+            </div>
+            <p class="text-xs font-bold text-slate-900">SKT IT인프라팀</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">서울 강남구</p>
+            <div class="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
+              <span>📦 8대</span>
+              <span>⚖️ 420kg</span>
+              <span class="ml-auto px-1 py-0.5 bg-purple-50 text-purple-700 rounded text-[9px] font-bold">기밀</span>
+            </div>
+          </div>
+          <!-- 카드 3: 완료 -->
+          <div class="bg-emerald-50 rounded-lg p-2.5 border border-emerald-200 opacity-80">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-black text-emerald-700">DSP-00120</span>
+              <span class="px-1.5 py-0.5 bg-emerald-200 text-emerald-800 rounded text-[9px] font-bold">✓ 완료</span>
+            </div>
+            <p class="text-xs font-bold text-slate-900">SKT (영등포)</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">서울 영등포구</p>
+            <div class="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
+              <span>📦 31대</span>
+              <span>⚖️ 350kg</span>
+              <span class="ml-auto px-1 py-0.5 bg-purple-50 text-purple-700 rounded text-[9px] font-bold">기밀</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 배정 차량 -->
+      <div class="p-3 border-t-2 border-dashed border-slate-200 bg-white">
+        <p class="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1">🚚 배정 차량 <span class="text-slate-400">(1)</span></p>
+        <div class="space-y-2">
+          <!-- 차량 카드 -->
+          <div class="bg-gradient-to-br from-indigo-50 to-white border border-indigo-200 rounded-lg p-2.5">
+            <div class="flex items-center justify-between mb-1.5">
+              <div>
+                <p class="text-xs font-black text-slate-900">🚛 3.5톤 탑차</p>
+                <p class="text-[10px] text-slate-500">박운송 · 서울12가3456</p>
+              </div>
+              <span class="text-[10px] font-bold text-indigo-600">1건</span>
+            </div>
+            <!-- 적재율 게이지 -->
+            <div class="flex items-center gap-2">
+              <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-emerald-500 rounded-full" style="width: 42%"></div>
+              </div>
+              <span class="text-[10px] font-bold text-emerald-600">42%</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">적재: 420 / 1,000kg</p>
+          </div>
+          <!-- 차량 추가 버튼 -->
+          <button class="w-full py-2 border-2 border-dashed border-slate-200 rounded-lg text-[10px] font-bold text-slate-400 hover:border-indigo-300 hover:text-indigo-500">
+            + 차량 추가
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========= 화 4/15 ========= -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <div class="p-4 bg-gradient-to-br from-sky-50 to-sky-100/50 border-b border-sky-100">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <p class="text-xs font-bold text-sky-500">화요일</p>
+            <p class="text-xl font-black text-sky-900">4/15</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-1 text-center my-3">
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">요청</p><p class="text-sm font-black text-slate-900">2건</p></div>
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">자산</p><p class="text-sm font-black text-slate-900">15대</p></div>
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">중량</p><p class="text-sm font-black text-slate-900">0.5t</p></div>
+        </div>
+        <div class="bg-white rounded-lg p-2.5 border border-sky-200">
+          <p class="text-[10px] font-bold text-sky-500 mb-1">🚐 권장 차량</p>
+          <p class="text-xs font-bold text-slate-800">1톤 1대</p>
+          <p class="text-[10px] text-slate-400">탑차/윙바디 가능</p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-slate-50/50 flex-1 min-h-[280px]">
+        <p class="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1">📋 요청 건 <span class="text-slate-400">(2)</span></p>
+        <div class="space-y-2">
+          <div class="bg-white rounded-lg p-2.5 border border-slate-200 hover:shadow-md cursor-grab">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-black text-indigo-600">DSP-00131</span>
+              <span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미배정</span>
+            </div>
+            <p class="text-xs font-bold text-slate-900">카카오엔터프라이즈</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">성남 분당구</p>
+            <div class="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
+              <span>📦 4대</span>
+              <span>⚖️ 180kg</span>
+              <span class="ml-auto px-1 py-0.5 bg-rose-50 text-rose-700 rounded text-[9px] font-bold">중요</span>
+            </div>
+          </div>
+          <div class="bg-emerald-50 rounded-lg p-2.5 border border-emerald-200 opacity-80">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-black text-emerald-700">DSP-00121</span>
+              <span class="px-1.5 py-0.5 bg-emerald-200 text-emerald-800 rounded text-[9px] font-bold">✓ 완료</span>
+            </div>
+            <p class="text-xs font-bold text-slate-900">한화시스템</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">서울 종로구</p>
+            <div class="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
+              <span>📦 11대</span>
+              <span>⚖️ 96kg</span>
+              <span class="ml-auto px-1 py-0.5 bg-rose-50 text-rose-700 rounded text-[9px] font-bold">중요</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 border-t-2 border-dashed border-slate-200 bg-white">
+        <p class="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1">🚚 배정 차량 <span class="text-slate-400">(0)</span></p>
+        <button class="w-full py-4 border-2 border-dashed border-slate-200 rounded-lg text-[10px] font-bold text-slate-400 hover:border-indigo-300 hover:text-indigo-500">
+          + 차량 추가
+        </button>
+      </div>
+    </div>
+
+    <!-- ========= 수 4/16 ========= -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <div class="p-4 bg-gradient-to-br from-sky-50 to-sky-100/50 border-b border-sky-100">
+        <p class="text-xs font-bold text-sky-500">수요일</p>
+        <p class="text-xl font-black text-sky-900">4/16</p>
+        <div class="grid grid-cols-3 gap-1 text-center my-3">
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">요청</p><p class="text-sm font-black text-slate-900">1건</p></div>
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">자산</p><p class="text-sm font-black text-slate-900">20대</p></div>
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">중량</p><p class="text-sm font-black text-slate-900">0.6t</p></div>
+        </div>
+        <div class="bg-white rounded-lg p-2.5 border border-sky-200">
+          <p class="text-[10px] font-bold text-sky-500 mb-1">🚐 권장 차량</p>
+          <p class="text-xs font-bold text-slate-800">1톤 1대</p>
+          <p class="text-[10px] text-rose-600 font-bold">⚠️ 극비등급 — 단독 운송 권장</p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-slate-50/50 flex-1 min-h-[280px]">
+        <p class="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1">📋 요청 건 <span class="text-slate-400">(1)</span></p>
+        <div class="space-y-2">
+          <div class="bg-white rounded-lg p-2.5 border border-rose-200 ring-2 ring-rose-100 hover:shadow-md cursor-grab">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-black text-indigo-600">DSP-00125</span>
+              <span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미배정</span>
+            </div>
+            <p class="text-xs font-bold text-slate-900">현대모비스 DX실</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">성남 분당구</p>
+            <div class="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
+              <span>📦 20대</span>
+              <span>⚖️ 600kg</span>
+              <span class="ml-auto px-1 py-0.5 bg-rose-100 text-rose-700 rounded text-[9px] font-black">극비</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 border-t-2 border-dashed border-slate-200 bg-white">
+        <p class="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1">🚚 배정 차량 <span class="text-slate-400">(0)</span></p>
+        <button class="w-full py-4 border-2 border-dashed border-slate-200 rounded-lg text-[10px] font-bold text-slate-400 hover:border-indigo-300 hover:text-indigo-500">
+          + 차량 추가
+        </button>
+      </div>
+    </div>
+
+    <!-- ========= 목 4/17 (요청 5건, 차량 2대 필요) ========= -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col shadow-md ring-2 ring-amber-200">
+      <div class="p-4 bg-gradient-to-br from-amber-50 to-orange-100/50 border-b border-amber-200">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <p class="text-xs font-bold text-amber-600">목요일</p>
+            <p class="text-xl font-black text-amber-900">4/17</p>
+          </div>
+          <span class="px-2 py-0.5 bg-rose-500 text-white rounded-md text-[10px] font-black animate-pulse">⚡ 피크</span>
+        </div>
+        <div class="grid grid-cols-3 gap-1 text-center my-3">
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">요청</p><p class="text-sm font-black text-rose-600">5건</p></div>
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">자산</p><p class="text-sm font-black text-rose-600">80대</p></div>
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">중량</p><p class="text-sm font-black text-rose-600">2.4t</p></div>
+        </div>
+        <div class="bg-white rounded-lg p-2.5 border border-amber-300">
+          <p class="text-[10px] font-bold text-amber-600 mb-1">🚛 권장 차량 (복수)</p>
+          <div class="flex items-center gap-1 flex-wrap">
+            <span class="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">5톤 1대</span>
+            <span class="text-slate-400 text-[9px]">+</span>
+            <span class="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">3.5톤 1대</span>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">지역 분할: 강남권 + 송파권</p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-slate-50/50 flex-1 min-h-[280px]">
+        <p class="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1">📋 요청 건 <span class="text-slate-400">(5)</span></p>
+        <div class="space-y-1.5">
+          <div class="bg-indigo-50 rounded-lg p-2 border border-indigo-200">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-black text-indigo-600">DSP-00133</span>
+              <span class="px-1 py-0.5 bg-indigo-200 text-indigo-700 rounded text-[9px] font-bold">배정</span>
+            </div>
+            <p class="text-[11px] font-bold text-slate-900">쿠팡 · 송파</p>
+            <p class="text-[9px] text-slate-500">22대 · 610kg · <span class="text-rose-700 font-bold">중요</span></p>
+          </div>
+          <div class="bg-white rounded-lg p-2 border border-slate-200 hover:shadow-md cursor-grab">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-black text-indigo-600">DSP-00128</span>
+              <span class="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미배정</span>
+            </div>
+            <p class="text-[11px] font-bold text-slate-900">삼성전자 DS · 화성</p>
+            <p class="text-[9px] text-slate-500">20대 · 580kg · <span class="text-rose-700 font-black">극비</span></p>
+          </div>
+          <div class="bg-white rounded-lg p-2 border border-slate-200 hover:shadow-md cursor-grab">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-black text-indigo-600">DSP-00135</span>
+              <span class="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미배정</span>
+            </div>
+            <p class="text-[11px] font-bold text-slate-900">한국전력 · 나주</p>
+            <p class="text-[9px] text-slate-500">14대 · 432kg · <span class="text-rose-700 font-black">극비</span></p>
+          </div>
+          <div class="bg-white rounded-lg p-2 border border-slate-200 hover:shadow-md cursor-grab">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-black text-indigo-600">DSP-00126</span>
+              <span class="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미배정</span>
+            </div>
+            <p class="text-[11px] font-bold text-slate-900">SKT · 강남</p>
+            <p class="text-[9px] text-slate-500">5대 · 15kg · <span class="text-slate-600 font-bold">일반</span></p>
+          </div>
+          <div class="bg-white rounded-lg p-2 border border-slate-200 hover:shadow-md cursor-grab">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-black text-indigo-600">DSP-00127</span>
+              <span class="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미배정</span>
+            </div>
+            <p class="text-[11px] font-bold text-slate-900">LG CNS · 마포</p>
+            <p class="text-[9px] text-slate-500">40대 · 1,200kg · <span class="text-purple-700 font-bold">기밀</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 border-t-2 border-dashed border-slate-200 bg-white">
+        <p class="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1">🚚 배정 차량 <span class="text-slate-400">(2)</span></p>
+        <div class="space-y-2">
+          <!-- 차량 1 - 거의 찬 상태 -->
+          <div class="bg-gradient-to-br from-rose-50 to-white border-2 border-rose-200 rounded-lg p-2.5">
+            <div class="flex items-center justify-between mb-1.5">
+              <div>
+                <p class="text-xs font-black text-slate-900">🚛 5톤 윙바디</p>
+                <p class="text-[10px] text-slate-500">박운송</p>
+              </div>
+              <span class="text-[10px] font-bold text-rose-600">1건</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-rose-500 rounded-full" style="width: 95%"></div>
+              </div>
+              <span class="text-[10px] font-black text-rose-600">95%</span>
+            </div>
+            <p class="text-[10px] text-rose-500 mt-1 font-bold">⚠️ 적재한계 근접</p>
+          </div>
+          <!-- 차량 2 -->
+          <div class="bg-gradient-to-br from-indigo-50 to-white border border-indigo-200 rounded-lg p-2.5">
+            <div class="flex items-center justify-between mb-1.5">
+              <div>
+                <p class="text-xs font-black text-slate-900">🚛 3.5톤 탑차</p>
+                <p class="text-[10px] text-slate-500">김기사</p>
+              </div>
+              <span class="text-[10px] font-bold text-indigo-600">0건</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-emerald-500 rounded-full" style="width: 0%"></div>
+              </div>
+              <span class="text-[10px] font-bold text-slate-400">0%</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">적재: 0 / 3,500kg</p>
+          </div>
+          <button class="w-full py-2 border-2 border-dashed border-slate-200 rounded-lg text-[10px] font-bold text-slate-400 hover:border-indigo-300 hover:text-indigo-500">
+            + 차량 추가
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========= 금 4/18 ========= -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <div class="p-4 bg-gradient-to-br from-sky-50 to-sky-100/50 border-b border-sky-100">
+        <p class="text-xs font-bold text-sky-500">금요일</p>
+        <p class="text-xl font-black text-sky-900">4/18</p>
+        <div class="grid grid-cols-3 gap-1 text-center my-3">
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">요청</p><p class="text-sm font-black text-slate-900">2건</p></div>
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">자산</p><p class="text-sm font-black text-slate-900">25대</p></div>
+          <div class="bg-white rounded-lg p-2"><p class="text-[9px] font-bold text-slate-400">중량</p><p class="text-sm font-black text-slate-900">0.7t</p></div>
+        </div>
+        <div class="bg-white rounded-lg p-2.5 border border-sky-200">
+          <p class="text-[10px] font-bold text-sky-500 mb-1">🚐 권장 차량</p>
+          <p class="text-xs font-bold text-slate-800">1톤 1대</p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-slate-50/50 flex-1 min-h-[280px]">
+        <p class="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1">📋 요청 건 <span class="text-slate-400">(2)</span></p>
+        <div class="space-y-2">
+          <div class="bg-white rounded-lg p-2.5 border border-slate-200 hover:shadow-md cursor-grab">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-black text-indigo-600">DSP-00134</span>
+              <span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미배정</span>
+            </div>
+            <p class="text-xs font-bold text-slate-900">토스 (비바리퍼블리카)</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">서울 강남구</p>
+            <div class="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
+              <span>📦 14대</span>
+              <span>⚖️ 38kg</span>
+              <span class="ml-auto px-1 py-0.5 bg-purple-50 text-purple-700 rounded text-[9px] font-bold">기밀</span>
+            </div>
+          </div>
+          <div class="bg-emerald-50 rounded-lg p-2.5 border border-emerald-200 opacity-80">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-black text-emerald-700">DSP-00117</span>
+              <span class="px-1.5 py-0.5 bg-emerald-200 text-emerald-800 rounded text-[9px] font-bold">✓ 완료</span>
+            </div>
+            <p class="text-xs font-bold text-slate-900">LG CNS</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">서울 마포구</p>
+            <div class="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
+              <span>📦 11대</span>
+              <span>⚖️ 380kg</span>
+              <span class="ml-auto px-1 py-0.5 bg-rose-50 text-rose-700 rounded text-[9px] font-bold">중요</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 border-t-2 border-dashed border-slate-200 bg-white">
+        <p class="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1">🚚 배정 차량 <span class="text-slate-400">(0)</span></p>
+        <button class="w-full py-4 border-2 border-dashed border-slate-200 rounded-lg text-[10px] font-bold text-slate-400 hover:border-indigo-300 hover:text-indigo-500">
+          + 차량 추가
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 하단 설명 -->
+  <div class="mt-6 bg-white rounded-2xl border border-slate-200 p-5">
+    <h3 class="text-sm font-black text-slate-900 mb-3 flex items-center gap-2">💡 화면 동작 안내</h3>
+    <div class="grid grid-cols-3 gap-4 text-xs">
+      <div class="flex items-start gap-2">
+        <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-black shrink-0">1</div>
+        <div>
+          <p class="font-bold text-slate-800">날짜별 총량 확인</p>
+          <p class="text-slate-500 mt-1">각 컬럼 상단에서 요청수 · 자산수 · 중량을 보고 피크 요일을 한눈에 파악</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-2">
+        <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-black shrink-0">2</div>
+        <div>
+          <p class="font-bold text-slate-800">권장 차량 참고</p>
+          <p class="text-slate-500 mt-1">중량 기반 자동 추천 (1톤 / 3.5톤 / 5톤). 극비 건은 단독 운송 경고 표시</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-2">
+        <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-black shrink-0">3</div>
+        <div>
+          <p class="font-bold text-slate-800">드래그 배정</p>
+          <p class="text-slate-500 mt-1">요청 카드를 차량에 드래그해서 묶음 배정. 적재율 게이지로 초과 방지</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6 text-center text-xs text-slate-400">
+    🎨 이 화면은 시안(Mockup)입니다. 실제 구현 시 드래그&드롭, 상세 모달, 차량 추가 기능이 모두 동작합니다.
+  </div>
+
+</div>
+
+</body>
+</html>

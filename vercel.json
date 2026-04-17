@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/workflow.html", "destination": "/workflow.html" },
-    { "source": "/((?!assets|workflow\\.html).*)", "destination": "/index.html" }
+    { "source": "/dispatch-mockup.html", "destination": "/dispatch-mockup.html" },
+    { "source": "/((?!assets|workflow\\.html|dispatch-mockup\\.html).*)", "destination": "/index.html" }
   ]
 }
