@@ -3496,43 +3496,45 @@ export default function App() {
                   const totalAssets = receivingData.reduce((a, r) => a + r.assetCount, 0);
 
                   return (
-                    <div className="space-y-6">
-                      {/* 요약 */}
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="bg-emerald-50 rounded-xl p-4 text-center">
-                          <p className="text-xs font-bold text-emerald-600">입고완료</p>
-                          <p className="text-2xl font-black text-emerald-700">{totalReceived}건</p>
+                    <div className="space-y-4">
+                      {/* 요약 + 캘린더 네비 통합 바 */}
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="text-[11px] font-bold text-emerald-600">입고완료</span>
+                            <span className="text-sm font-black text-emerald-700">{totalReceived}</span>
+                          </div>
+                          <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                            <span className="text-[11px] font-bold text-amber-600">입고예정</span>
+                            <span className="text-sm font-black text-amber-700">{totalExpected}</span>
+                          </div>
+                          <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-indigo-600">총 자산수</span>
+                            <span className="text-sm font-black text-indigo-700">{totalAssets}</span>
+                          </div>
                         </div>
-                        <div className="bg-amber-50 rounded-xl p-4 text-center">
-                          <p className="text-xs font-bold text-amber-600">입고예정</p>
-                          <p className="text-2xl font-black text-amber-700">{totalExpected}건</p>
-                        </div>
-                        <div className="bg-indigo-50 rounded-xl p-4 text-center">
-                          <p className="text-xs font-bold text-indigo-600">총 자산수</p>
-                          <p className="text-2xl font-black text-indigo-700">{totalAssets}건</p>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setReceivingMonth(new Date(year, month - 1, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                            <ChevronLeft className="w-4 h-4 text-slate-600" />
+                          </button>
+                          <h3 className="text-sm font-bold text-slate-900 px-2">{year}년 {month + 1}월</h3>
+                          <button onClick={() => setReceivingMonth(new Date(year, month + 1, 1))} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                            <ChevronRight className="w-4 h-4 text-slate-600" />
+                          </button>
                         </div>
                       </div>
 
-                      {/* 캘린더 네비게이션 */}
-                      <div className="flex items-center justify-between">
-                        <button onClick={() => setReceivingMonth(new Date(year, month - 1, 1))} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                          <ChevronLeft className="w-5 h-5 text-slate-600" />
-                        </button>
-                        <h3 className="text-lg font-bold text-slate-900">{year}년 {month + 1}월</h3>
-                        <button onClick={() => setReceivingMonth(new Date(year, month + 1, 1))} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                          <ChevronRight className="w-5 h-5 text-slate-600" />
-                        </button>
-                      </div>
-
-                      {/* 캘린더 그리드 */}
+                      {/* 캘린더 그리드 (compact) */}
                       <div className="border border-slate-200 rounded-xl overflow-hidden">
                         {/* 요일 헤더 */}
                         <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-200">
                           {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-                            <div key={d} className={cn("py-3 text-center text-xs font-bold", i === 0 ? "text-rose-500" : i === 6 ? "text-blue-500" : "text-slate-500")}>{d}</div>
+                            <div key={d} className={cn("py-1.5 text-center text-[10px] font-bold", i === 0 ? "text-rose-500" : i === 6 ? "text-blue-500" : "text-slate-500")}>{d}</div>
                           ))}
                         </div>
-                        {/* 날짜 셀 */}
+                        {/* 날짜 셀 - compact */}
                         <div className="grid grid-cols-7">
                           {calendarDays.map((day, idx) => {
                             const events = day ? getEventsForDay(day) : [];
@@ -3541,31 +3543,30 @@ export default function App() {
                             const dayOfWeek = idx % 7;
                             return (
                               <div key={idx} className={cn(
-                                "min-h-[110px] border-b border-r border-slate-100 p-1.5",
+                                "min-h-[64px] border-b border-r border-slate-100 p-1",
                                 !day && "bg-slate-50/50",
                                 isToday && "bg-rose-50/40"
                               )}>
                                 {day && (
                                   <>
                                     <div className={cn(
-                                      "text-xs font-bold mb-1 w-6 h-6 flex items-center justify-center rounded-full",
-                                      isToday ? "bg-rose-600 text-white" : dayOfWeek === 0 ? "text-rose-500" : dayOfWeek === 6 ? "text-blue-500" : "text-slate-700"
+                                      "text-[10px] font-bold mb-0.5 w-5 h-5 flex items-center justify-center rounded-full",
+                                      isToday ? "bg-rose-600 text-white" : dayOfWeek === 0 ? "text-rose-500" : dayOfWeek === 6 ? "text-blue-500" : "text-slate-600"
                                     )}>
                                       {day}
                                     </div>
-                                    <div className="space-y-1">
-                                      {events.map(ev => (
+                                    <div className="space-y-0.5">
+                                      {events.slice(0, 2).map(ev => (
                                         <div key={ev.id} className={cn(
-                                          "px-1.5 py-1 rounded-md text-[10px] font-bold truncate cursor-default",
+                                          "px-1 py-0.5 rounded text-[9px] font-bold truncate cursor-default leading-tight",
                                           ev.status === '입고완료' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
                                         )} title={`${ev.company} · ${ev.assetTypes} (${ev.assetCount}건)`}>
-                                          <span className={cn(
-                                            "inline-block w-1.5 h-1.5 rounded-full mr-1",
-                                            ev.status === '입고완료' ? "bg-emerald-500" : "bg-amber-500"
-                                          )} />
                                           {ev.company} ({ev.assetCount})
                                         </div>
                                       ))}
+                                      {events.length > 2 && (
+                                        <div className="text-[9px] text-slate-400 font-bold px-1">+{events.length - 2}건</div>
+                                      )}
                                     </div>
                                   </>
                                 )}
@@ -3575,21 +3576,11 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* 범례 */}
-                      <div className="flex items-center gap-6 justify-end">
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full bg-emerald-500" />
-                          <span className="text-xs font-bold text-slate-600">입고완료</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full bg-amber-500" />
-                          <span className="text-xs font-bold text-slate-600">입고예정</span>
-                        </div>
-                      </div>
-
                       {/* 입고 목록 테이블 */}
                       <div>
-                        <h4 className="text-sm font-bold text-slate-700 mb-3">입고 목록</h4>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-bold text-slate-700">입고 목록 <span className="text-xs text-slate-400 font-normal">({year}년 {month + 1}월)</span></h4>
+                        </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-left">
                             <thead className="bg-slate-50 border-b border-slate-200">
