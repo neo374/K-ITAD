@@ -3234,7 +3234,89 @@ export default function App() {
             {/* =================== TAB: 운송 모니터링 (Leaflet 지도 통합 뷰) =================== */}
             {transportTab === 'monitoring' && userRole !== 'emitter' && (
               <>
-                <div className="flex gap-0 rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white" style={{ height: 'calc(100vh - 280px)', minHeight: 500 }}>
+                {/* ===== 일자별 운송 현황 요약 ===== */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+                  <div className="p-3 border-b border-slate-100 flex items-center justify-between">
+                    <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-indigo-600" />
+                      일자별 운송 현황
+                      <span className="text-xs font-normal text-slate-400">
+                        {weekDates.length > 0 && `${weekDates[0].date.getMonth() + 1}/${weekDates[0].date.getDate()} ~ ${weekDates[weekDates.length - 1].date.getMonth() + 1}/${weekDates[weekDates.length - 1].date.getDate()}${calendarWeekOffset === 0 ? ' (이번 주)' : calendarWeekOffset === 1 ? ' (다음 주)' : calendarWeekOffset === -1 ? ' (지난 주)' : ''}`}
+                      </span>
+                    </h2>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCalendarWeekOffset(calendarWeekOffset - 1)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4 text-slate-500" />
+                      </button>
+                      <button
+                        onClick={() => setCalendarWeekOffset(0)}
+                        className="px-3 py-1 rounded-lg text-xs font-bold text-indigo-600 hover:bg-indigo-50"
+                      >
+                        이번 주
+                      </button>
+                      <button
+                        onClick={() => setCalendarWeekOffset(calendarWeekOffset + 1)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4 text-slate-500" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-5 divide-x divide-slate-100">
+                    {weekDates.map(d => {
+                      // emission.collectionDate 기준 + 상태 매핑
+                      const dayEmissions = emissionRequests.filter(e => e.collectionDate === d.key);
+                      const inProgress = dayEmissions.filter(e => e.status === '운송중').length;
+                      const completed = dayEmissions.filter(e => e.status === '처리완료' || e.status === '데이터폐기중').length;
+                      const waiting = dayEmissions.filter(e => e.status === '신청완료' || e.status === '접수확인' || e.status === '승인대기').length;
+                      const total = inProgress + completed + waiting;
+                      const todayStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+                      const isToday = d.key === todayStr;
+                      return (
+                        <div key={d.key} className={cn(
+                          "p-3",
+                          isToday && "bg-indigo-50/30"
+                        )}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={cn(
+                              "text-xs font-bold",
+                              isToday ? "text-indigo-700" : "text-slate-600"
+                            )}>{d.label}{isToday ? ' · 오늘' : ''}</span>
+                            <span className="text-[10px] font-bold text-slate-400">총 {total}건</span>
+                          </div>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between bg-slate-50 rounded-md px-2 py-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                                <span className="text-[11px] font-bold text-slate-500">운행대기</span>
+                              </div>
+                              <span className={cn("text-sm font-black", waiting > 0 ? "text-slate-700" : "text-slate-300")}>{waiting}</span>
+                            </div>
+                            <div className="flex items-center justify-between bg-blue-50 rounded-md px-2 py-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                <span className="text-[11px] font-bold text-blue-600">운행중</span>
+                              </div>
+                              <span className={cn("text-sm font-black", inProgress > 0 ? "text-blue-700" : "text-blue-200")}>{inProgress}</span>
+                            </div>
+                            <div className="flex items-center justify-between bg-emerald-50 rounded-md px-2 py-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span className="text-[11px] font-bold text-emerald-600">운행완료</span>
+                              </div>
+                              <span className={cn("text-sm font-black", completed > 0 ? "text-emerald-700" : "text-emerald-200")}>{completed}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex gap-0 rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white" style={{ height: 'calc(100vh - 420px)', minHeight: 500 }}>
                   {/* 좌측: 배출요청건 목록 */}
                   <div className="w-[320px] border-r border-slate-200 flex flex-col flex-shrink-0">
                     <div className="p-4 border-b border-slate-100">
